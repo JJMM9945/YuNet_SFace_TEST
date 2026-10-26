@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>인물 그룹 수동 검토</title>
+<style>
+body{font:15px system-ui,sans-serif;background:#f5f6f8;color:#20252b;margin:24px}h1{margin-bottom:8px}
+.bar{position:sticky;top:0;z-index:2;background:white;padding:12px;border:1px solid #bbb;border-radius:8px}
+button,input,select{font:inherit;padding:7px;margin:3px}button{cursor:pointer}input[type=text]{width:130px}
+.faces{display:flex;flex-wrap:wrap;gap:10px}.card{width:210px;padding:10px;background:white;border:1px solid #ccc;border-radius:6px;overflow-wrap:anywhere}
+.card img{width:112px;height:112px;object-fit:contain}.card.edited{border:2px solid #227d58;padding:9px}.card.excluded{opacity:.55}
+.small{font-size:12px;color:#555}.warn{color:#934400}section{border-top:1px solid #ccc;padding:16px 0}a{color:#145cac}
+#preview{display:flex;flex-wrap:wrap;gap:12px}#preview img{width:64px;height:64px;object-fit:contain}.preview-group{padding:12px;background:#fff}
+[hidden]{display:none!important}#message{white-space:pre-wrap}
+</style>
+<h1>인물 그룹 수동 검토</h1>
+<p>같은 실제 인물에는 그룹이 달라도 같은 ID(A01 등), 다른 사람에는 다른 ID를 입력하세요. 실제 이름은 필요 없습니다.</p>
+<p>자동 그룹 번호는 정답이 아니므로 처음에는 ID가 비어 있습니다. 판별하기 어려운 얼굴은 빈 칸, 얼굴이 아닌 검출은 ‘평가 포함’을 해제하세요.</p>
+<div class="bar">
+<button id="export">검토 CSV 다운로드</button><label>CSV 불러오기 <input id="import" type="file" accept=".csv,text/csv"></label>
+<select id="filter"><option value="all">모든 얼굴</option><option value="empty">ID 미입력</option><option value="unknown">자동 미확인</option><option value="flagged">자동 검토 표시</option></select>
+<button id="show-preview">수동 ID별 미리보기 갱신</button><span id="progress"></span>
+<div id="message" role="status"></div>
+</div>
+<p class="warn">브라우저 입력은 원래 결과 파일을 바꾸지 않습니다. CSV를 다운로드해 보관하세요. 이 페이지는 서버·외부 CDN·사진 업로드를 사용하지 않습니다.</p>
+<details><summary>수동 ID별 미리보기 — 같은 ID가 잘못 섞였는지 확인</summary><div id="preview"></div></details>
+<div id="groups"></div>
+<script type="application/json" id="data">__REVIEW_PAYLOAD__</script>
+<script>
+'use strict';
+const data=JSON.parse(document.getElementById('data').textContent), states=new Map(), cards=new Map(), panels=[];
+const key='face-review-v1:'+data.context, message=document.getElementById('message');
+const validID=s=>!s||/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(s);
+function node(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
+function stateFromCSV(row){return {manual_person_id:row.manual_person_id.trim(),include:row.include.trim(),notes:row.notes||''};}
+for(const f of data.faces) states.set(f.face_id,{manual_person_id:f.manual_person_id||'',include:f.reason==='manual_review_excluded'?'0':'1',notes:''});
+function save(){try{localStorage.setItem(key,JSON.stringify(Object.fromEntries(states)));}catch(e){message.textContent='브라우저 임시 저장을 사용할 수 없습니다. CSV를 다운로드하세요.';}}
+try{const saved=JSON.parse(localStorage.getItem(key)||'null');if(saved)for(const [id,s] of Object.entries(saved))if(states.has(id)&&validID(s.manual_person_id)&&['0','1'].includes(s.include))states.set(id,s);}catch(e){}
+const grouped=new Map();for(const f of data.faces){const gid=f.group_id||'unknown';if(!grouped.has(gid))grouped.set(gid,[]);grouped.get(gid).push(f);}
+function refresh(){let done=0,excluded=0;const filter=document.getElementById('filter').value;
+ for(const f of data.faces){const s=states.get(f.face_id),c=cards.get(f.face_id);if(s.include==='0')excluded++;else if(s.manual_person_id)done++;
+ c.box.classList.toggle('edited',Boolean(s.manual_person_id));c.box.classList.toggle('excluded',s.include==='0');
+ c.box.hidden=(filter==='empty'&&(s.manual_person_id||s.include==='0'))||(filter==='unknown'&&f.status!=='unknown')||(filter==='flagged'&&!f.review);
+ c.input.value=s.manual_person_id;c.check.checked=s.include==='1';}
+ for(const p of panels)p.box.hidden=p.ids.every(id=>cards.get(id).box.hidden);
+ document.getElementById('progress').textContent=`ID 입력 ${done} / 전체 ${data.faces.length}, 제외 ${excluded}`;
+}
+for(const [gid,faces] of [...grouped].sort((a,b)=>a[0].localeCompare(b[0]))){
+ const section=node('section'),head=node('h2',`${faces[0].label||'미확인'} (${faces.length}개 얼굴)`),bulk=node('input');bulk.type='text';bulk.placeholder='그룹 공통 수동 ID';
+ const fill=node('button','이 그룹의 빈 ID만 채우기');fill.onclick=()=>{const id=bulk.value.trim();if(!id||!validID(id)){message.textContent='ID는 영문·숫자·_·- 1~64자로 입력하세요.';return;}
+ for(const f of faces){const s=states.get(f.face_id);if(!s.manual_person_id&&s.include==='1')s.manual_person_id=id;}save();refresh();};
+ section.append(head,bulk,fill,node('p','모든 얼굴이 같은 사람인지 확인한 경우에만 일괄 입력하세요. 잘못 섞인 얼굴의 ID는 아래에서 개별 변경할 수 있습니다.','small'));
+ const grid=node('div',undefined,'faces');section.append(grid);
+ for(const f of faces){const box=node('div',undefined,'card'),s=states.get(f.face_id);
+ if(f.crop_path){const img=node('img');img.src=f.crop_path;img.alt=f.face_id;box.append(img);}else box.append(node('p','정렬 얼굴 없음'));
+ box.append(node('p',f.face_id,'small'),node('p',f.relative_path,'small'),node('p',`${f.reason||''} ${f.review||''}`,'small'));
+ const link=node('a','사진 보기');link.href=`annotated/${f.photo_id}.jpg`;link.target='_blank';link.rel='noopener';box.append(link,node('br'));
+ const label=node('label','수동 ID '),input=node('input');input.type='text';input.placeholder='예: A01';input.maxLength=64;input.value=s.manual_person_id;
+ input.oninput=()=>{const id=input.value.trim();input.setCustomValidity(validID(id)?'':'영문·숫자·_·-만 사용하세요.');if(!validID(id)){message.textContent='ID 형식을 확인하세요.';return;}states.get(f.face_id).manual_person_id=id;save();refresh();};label.append(input);box.append(label,node('br'));
+ const include=node('label','평가 포함 '),check=node('input');check.type='checkbox';check.checked=s.include==='1';check.onchange=()=>{states.get(f.face_id).include=check.checked?'1':'0';save();refresh();};include.append(check);box.append(include);
+ cards.set(f.face_id,{box,input,check});grid.append(box);}
+ document.getElementById('groups').append(section);panels.push({box:section,ids:faces.map(f=>f.face_id)});
+}
+document.getElementById('filter').onchange=refresh;
+function quote(s){s=String(s);if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}
+document.getElementById('export').onclick=()=>{for(const c of cards.values())if(!c.input.reportValidity())return;const fields=['face_id','photo_id','relative_path','manual_person_id','include','review_type','notes','_context_sha256'];
+ const rows=[fields,...data.faces.map(f=>{const s=states.get(f.face_id);return[f.face_id,f.photo_id,f.relative_path,s.manual_person_id,s.include,'',s.notes||'',data.context];})];
+ const blob=new Blob(['\uFEFF'+rows.map(r=>r.map(quote).join(',')).join('\r\n')+'\r\n'],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=node('a');
+ a.href=url;a.download='ground_truth.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);message.textContent='다운로드한 ground_truth.csv를 이 결과 폴더에 저장하세요.';};
+function parseCSV(text){text=text.replace(/^\uFEFF/,'');const rows=[];let row=[],cell='',quoted=false;
+ for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}
+ else if(c===','&&!quoted){row.push(cell);cell='';}else if((c==='\r'||c==='\n')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(s=>s!==''))rows.push(row);row=[];cell='';}else cell+=c;}
+ if(quoted)throw Error('CSV 따옴표가 닫히지 않았습니다.');if(cell||row.length){row.push(cell);rows.push(row);}if(!rows.length)throw Error('CSV가 비었습니다.');
+ const fields=rows.shift();for(const f of ['face_id','manual_person_id','include','_context_sha256'])if(!fields.includes(f))throw Error('필수 열 누락: '+f);
+ return rows.map(r=>Object.fromEntries(fields.map((f,i)=>[f,r[i]||''])));}
+document.getElementById('import').onchange=async event=>{try{const file=event.target.files[0];if(!file)return;const rows=parseCSV(await file.text()),pending=new Map();
+ for(const r of rows){if(r._context_sha256!==data.context)throw Error('다른 추출 실행의 CSV입니다.');if(!states.has(r.face_id)||pending.has(r.face_id))throw Error('알 수 없거나 중복된 face_id');
+ const s=stateFromCSV(r);if(!validID(s.manual_person_id)||!['0','1'].includes(s.include))throw Error('ID 또는 include 형식 오류');pending.set(r.face_id,s);}
+ // Replace annotations transactionally; omitted rows reset, never retain stale IDs.
+ for(const f of data.faces)states.set(f.face_id,pending.get(f.face_id)||{manual_person_id:'',include:'1',notes:''});
+ save();refresh();message.textContent='CSV를 불러왔습니다.';}catch(e){message.textContent=e.message;}finally{event.target.value='';}};
+document.getElementById('show-preview').onclick=()=>{const container=document.getElementById('preview');container.replaceChildren();const map=new Map();
+ for(const f of data.faces){const s=states.get(f.face_id);if(s.include==='1'&&s.manual_person_id){if(!map.has(s.manual_person_id))map.set(s.manual_person_id,[]);map.get(s.manual_person_id).push(f);}}
+ for(const [id,faces] of [...map].sort((a,b)=>a[0].localeCompare(b[0]))){const box=node('div',undefined,'preview-group');box.append(node('h3',`${id} (${faces.length})`));
+ for(const f of faces){const a=node('a');a.href=`annotated/${f.photo_id}.jpg`;a.target='_blank';a.rel='noopener';a.title=f.face_id;if(f.crop_path){const im=node('img');im.src=f.crop_path;im.alt=f.face_id;a.append(im);}else a.textContent=f.face_id;box.append(a);}container.append(box);}
+ container.parentElement.open=true;};
+refresh();
+</script></html>
