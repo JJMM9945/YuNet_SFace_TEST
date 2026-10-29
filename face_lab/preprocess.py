@@ -31,7 +31,7 @@ def extract(recognizer, bgr, row):
     crop = recognizer.alignCrop(bgr, row)
     feature = recognizer.feature(crop).reshape(-1).astype(np.float32).copy()
     norm = np.linalg.norm(feature)
-    if not np.isfinite(feature).all() or norm <= 1e-12:
+    if feature.size != 128 or not np.isfinite(feature).all() or not np.isfinite(norm) or norm <= 1e-12:
         raise ValueError("invalid_feature_vector")
     return crop, feature / norm
 

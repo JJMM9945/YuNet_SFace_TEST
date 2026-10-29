@@ -30,7 +30,7 @@ const data=JSON.parse(document.getElementById('data').textContent), states=new M
 const key='face-review-v1:'+data.context, message=document.getElementById('message');
 const validID=s=>!s||/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(s);
 function node(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
-function stateFromCSV(row){return {manual_person_id:row.manual_person_id.trim(),include:row.include.trim(),notes:row.notes||''};}
+function stateFromCSV(row){return {manual_person_id:row.manual_person_id.trim(),include:row.include.trim(),annotation_status:(row.annotation_status||'').trim(),notes:row.notes||''};}
 for(const f of data.faces) states.set(f.face_id,{manual_person_id:f.manual_person_id||'',include:f.reason==='manual_review_excluded'?'0':'1',notes:''});
 function save(){try{localStorage.setItem(key,JSON.stringify(Object.fromEntries(states)));}catch(e){message.textContent='브라우저 임시 저장을 사용할 수 없습니다. CSV를 다운로드하세요.';}}
 try{const saved=JSON.parse(localStorage.getItem(key)||'null');if(saved)for(const [id,s] of Object.entries(saved))if(states.has(id)&&validID(s.manual_person_id)&&['0','1'].includes(s.include))states.set(id,s);}catch(e){}
@@ -39,14 +39,14 @@ function refresh(){let done=0,excluded=0;const filter=document.getElementById('f
  for(const f of data.faces){const s=states.get(f.face_id),c=cards.get(f.face_id);if(s.include==='0')excluded++;else if(s.manual_person_id)done++;
  c.box.classList.toggle('edited',Boolean(s.manual_person_id));c.box.classList.toggle('excluded',s.include==='0');
  c.box.hidden=(filter==='empty'&&(s.manual_person_id||s.include==='0'))||(filter==='unknown'&&f.status!=='unknown')||(filter==='flagged'&&!f.review);
- c.input.value=s.manual_person_id;c.check.checked=s.include==='1';}
+ c.input.value=s.manual_person_id;c.check.checked=s.include==='1';c.uncertain.checked=s.annotation_status==='uncertain';}
  for(const p of panels)p.box.hidden=p.ids.every(id=>cards.get(id).box.hidden);
  document.getElementById('progress').textContent=`ID 입력 ${done} / 전체 ${data.faces.length}, 제외 ${excluded}`;
 }
 for(const [gid,faces] of [...grouped].sort((a,b)=>a[0].localeCompare(b[0]))){
  const section=node('section'),head=node('h2',`${faces[0].label||'미확인'} (${faces.length}개 얼굴)`),bulk=node('input');bulk.type='text';bulk.placeholder='그룹 공통 수동 ID';
  const fill=node('button','이 그룹의 빈 ID만 채우기');fill.onclick=()=>{const id=bulk.value.trim();if(!id||!validID(id)){message.textContent='ID는 영문·숫자·_·- 1~64자로 입력하세요.';return;}
- for(const f of faces){const s=states.get(f.face_id);if(!s.manual_person_id&&s.include==='1')s.manual_person_id=id;}save();refresh();};
+ for(const f of faces){const s=states.get(f.face_id);if(!s.manual_person_id&&s.include==='1'&&s.annotation_status!=='uncertain')s.manual_person_id=id;}save();refresh();};
  section.append(head,bulk,fill,node('p','모든 얼굴이 같은 사람인지 확인한 경우에만 일괄 입력하세요. 잘못 섞인 얼굴의 ID는 아래에서 개별 변경할 수 있습니다.','small'));
  const grid=node('div',undefined,'faces');section.append(grid);
  for(const f of faces){const box=node('div',undefined,'card'),s=states.get(f.face_id);
@@ -54,15 +54,16 @@ for(const [gid,faces] of [...grouped].sort((a,b)=>a[0].localeCompare(b[0]))){
  box.append(node('p',f.face_id,'small'),node('p',f.relative_path,'small'),node('p',`${f.reason||''} ${f.review||''}`,'small'));
  const link=node('a','사진 보기');link.href=`annotated/${f.photo_id}.jpg`;link.target='_blank';link.rel='noopener';box.append(link,node('br'));
  const label=node('label','수동 ID '),input=node('input');input.type='text';input.placeholder='예: A01';input.maxLength=64;input.value=s.manual_person_id;
- input.oninput=()=>{const id=input.value.trim();input.setCustomValidity(validID(id)?'':'영문·숫자·_·-만 사용하세요.');if(!validID(id)){message.textContent='ID 형식을 확인하세요.';return;}states.get(f.face_id).manual_person_id=id;save();refresh();};label.append(input);box.append(label,node('br'));
+ input.oninput=()=>{const id=input.value.trim();input.setCustomValidity(validID(id)?'':'영문·숫자·_·-만 사용하세요.');if(!validID(id)){message.textContent='ID 형식을 확인하세요.';return;}states.get(f.face_id).manual_person_id=id;if(id)states.get(f.face_id).annotation_status='';save();refresh();};label.append(input);box.append(label,node('br'));
  const include=node('label','평가 포함 '),check=node('input');check.type='checkbox';check.checked=s.include==='1';check.onchange=()=>{states.get(f.face_id).include=check.checked?'1':'0';save();refresh();};include.append(check);box.append(include);
- cards.set(f.face_id,{box,input,check});grid.append(box);}
+ const uncertainLabel=node('label',' 판단 불가 '),uncertain=node('input');uncertain.type='checkbox';uncertain.onchange=()=>{const current=states.get(f.face_id);current.annotation_status=uncertain.checked?'uncertain':'';if(uncertain.checked)current.manual_person_id='';save();refresh();};uncertainLabel.append(uncertain);box.append(uncertainLabel);
+ cards.set(f.face_id,{box,input,check,uncertain});grid.append(box);}
  document.getElementById('groups').append(section);panels.push({box:section,ids:faces.map(f=>f.face_id)});
 }
 document.getElementById('filter').onchange=refresh;
 function quote(s){s=String(s);if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}
-document.getElementById('export').onclick=()=>{for(const c of cards.values())if(!c.input.reportValidity())return;const fields=['face_id','photo_id','relative_path','manual_person_id','include','review_type','notes','_context_sha256'];
- const rows=[fields,...data.faces.map(f=>{const s=states.get(f.face_id);return[f.face_id,f.photo_id,f.relative_path,s.manual_person_id,s.include,'',s.notes||'',data.context];})];
+document.getElementById('export').onclick=()=>{for(const c of cards.values())if(!c.input.reportValidity())return;const fields=['face_id','photo_id','relative_path','manual_person_id','include','annotation_status','review_type','notes','_context_sha256'];
+ const rows=[fields,...data.faces.map(f=>{const s=states.get(f.face_id);return[f.face_id,f.photo_id,f.relative_path,s.manual_person_id,s.include,s.annotation_status||'','',s.notes||'',data.context];})];
  const blob=new Blob(['\uFEFF'+rows.map(r=>r.map(quote).join(',')).join('\r\n')+'\r\n'],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=node('a');
  a.href=url;a.download='ground_truth.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);message.textContent='다운로드한 ground_truth.csv를 이 결과 폴더에 저장하세요.';};
 function parseCSV(text){text=text.replace(/^\uFEFF/,'');const rows=[];let row=[],cell='',quoted=false;
@@ -73,7 +74,7 @@ function parseCSV(text){text=text.replace(/^\uFEFF/,'');const rows=[];let row=[]
  return rows.map(r=>Object.fromEntries(fields.map((f,i)=>[f,r[i]||''])));}
 document.getElementById('import').onchange=async event=>{try{const file=event.target.files[0];if(!file)return;const rows=parseCSV(await file.text()),pending=new Map();
  for(const r of rows){if(r._context_sha256!==data.context)throw Error('다른 추출 실행의 CSV입니다.');if(!states.has(r.face_id)||pending.has(r.face_id))throw Error('알 수 없거나 중복된 face_id');
- const s=stateFromCSV(r);if(!validID(s.manual_person_id)||!['0','1'].includes(s.include))throw Error('ID 또는 include 형식 오류');pending.set(r.face_id,s);}
+ const s=stateFromCSV(r);if(!validID(s.manual_person_id)||!['0','1'].includes(s.include)||!['','labeled','uncertain','excluded','unlabeled'].includes(s.annotation_status)||(['uncertain','excluded','unlabeled'].includes(s.annotation_status)&&s.manual_person_id))throw Error('ID 또는 include 형식 오류');pending.set(r.face_id,s);}
  // Replace annotations transactionally; omitted rows reset, never retain stale IDs.
  for(const f of data.faces)states.set(f.face_id,pending.get(f.face_id)||{manual_person_id:'',include:'1',notes:''});
  save();refresh();message.textContent='CSV를 불러왔습니다.';}catch(e){message.textContent=e.message;}finally{event.target.value='';}};

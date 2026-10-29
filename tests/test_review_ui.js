@@ -41,6 +41,11 @@ async function main(){
  sandbox.localStorage.setItem=()=>{throw Error('disabled');};sandbox.partial='face_id,manual_person_id,include,_context_sha256\r\nc,E05,1,source-context\r\n';
  await ids.import.onchange({target:ids.import});assert.equal(run("states.get('c').manual_person_id"),'E05');
  run("document.getElementById('show-preview').onclick()");assert.ok(ids.preview.children.length);
+ run("cards.get('b').uncertain.checked=true;cards.get('b').uncertain.onchange();");
+ assert.equal(run("states.get('b').annotation_status"),'uncertain');
+ assert.equal(run("states.get('b').manual_person_id"),'');
+ ids.export.onclick();sandbox.uncertainCSV=await exported.text();
+ assert.equal(run("parseCSV(uncertainCSV).find(r=>r.face_id==='b').annotation_status"),'uncertain');
  console.log('Review UI smoke checks passed: batch fill, split, CSV round-trip, provenance, import/edit, storage fallback, preview.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

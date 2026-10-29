@@ -115,6 +115,55 @@ class IntegrationTests(unittest.TestCase):
         call("regroup","--source",run,"--input",data,"--output",out,expected=2)
         print(f"INTEGRATION_ARTIFACTS: {base}")
 
+    def test_disjoint_dev_selection_eval_pipeline(self):
+        sample = ROOT/'validation_data/official_sample/lena.jpg'
+        if not sample.exists():
+            self.skipTest('Local sample missing')
+        import tempfile
+        from face_lab.pipeline import write_csv
+        with tempfile.TemporaryDirectory() as d:
+            base=Path(d);data=base/'input';data.mkdir();out=base/'out'
+            for i in range(4): shutil.copy2(sample,data/f'{i}.jpg')
+            call('analyze','--input',data,'--output',out,'--min-group-size','1')
+            source=next(out.iterdir())
+            cache=json.loads((source/'cache.json').read_text())
+            truth=[]
+            from face_lab.review import context_hash
+            for f in cache['faces']:
+                truth.append(dict(face_id=f['face_id'],manual_person_id='public_A',include='1',_context_sha256=context_hash(cache)))
+            truthpath=base/'truth.csv';write_csv(truthpath,truth,list(truth[0]))
+            splits=[dict(photo_id=p['photo_id'],split='dev' if i<2 else 'eval') for i,p in enumerate(cache['photos'])]
+            splitpath=base/'split.csv';write_csv(splitpath,splits,['photo_id','split'])
+            compareout=base/'comparison'
+            call('compare','--source',source,'--input',data,'--output',compareout,
+                 '--split-manifest',splitpath,'--subset','dev','--ground-truth',truthpath,'--thresholds','.5')
+            dev=next(compareout.iterdir())
+            report=json.loads((dev/'comparison.json').read_text())
+            for result in report['experiments'].values():
+                self.assertEqual(result['summary']['detected_faces'],2)
+                self.assertEqual(result['evaluation']['evaluated_faces'],2)
+                self.assertEqual(result['evaluation']['f1'],1)
+            call('select-config','--comparison',dev,'--experiment','baseline_complete')
+            selection=next(dev.glob('selected_config_*.json'))
+            call('compare','--source',source,'--input',data,'--output',compareout,
+                 '--split-manifest',splitpath,'--subset','eval',expected=2)
+            call('compare','--source',source,'--input',data,'--output',compareout,
+                 '--split-manifest',splitpath,'--subset','eval','--selected-config',selection,
+                 '--ground-truth',truthpath,'--similarity-threshold','.99')
+            evaluation=sorted(compareout.iterdir())[-1]
+            report=json.loads((evaluation/'comparison.json').read_text())
+            self.assertEqual(len(report['experiments']),1)
+            frozen=report['experiments']['frozen_dev_selection']
+            self.assertEqual(frozen['config']['similarity_threshold'],.45)  # eval CLI cannot tune the frozen threshold
+            self.assertEqual(frozen['evaluation']['f1'],1)
+            dev_ids=set(json.loads((dev/'baseline_complete/experiment.json').read_text())['face_ids'])
+            eval_ids=set(json.loads((evaluation/'frozen_dev_selection/experiment.json').read_text())['face_ids'])
+            self.assertFalse(dev_ids & eval_ids)
+            call('evaluate','--run',evaluation/'frozen_dev_selection','--ground-truth',truthpath,
+                 '--split-manifest',splitpath,'--subset','eval')
+            call('review','--run',dev/'baseline_complete')
+            call('select-config','--comparison',evaluation,'--experiment','frozen_dev_selection',expected=2)
+
 
 if __name__=="__main__":
     unittest.main()

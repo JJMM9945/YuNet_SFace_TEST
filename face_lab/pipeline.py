@@ -16,7 +16,7 @@ import scipy
 from . import VERSION, PREPROCESS_VERSION, GROUPING_VERSION
 from .models import MODELS, load, sha256, verify
 from .preprocess import decode_oriented, detection_input, to_original, extract, save_bgr
-from .grouping import group_faces
+from .grouping import group_faces, reassign_unknown, validate_vectors
 
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 
@@ -152,6 +152,23 @@ def analyze(args):
     return finish(run, photos, faces, vectors, args, start, detection_seconds, feature_seconds, cache, "analyze")
 
 
+def load_vectors(source, cache):
+    if sha256(source / "features.npz") != cache['features_sha256']:
+        raise ValueError('Feature cache checksum mismatch')
+    with np.load(source / "features.npz", allow_pickle=False) as data:
+        ids, matrix = data['face_ids'].tolist(), data['vectors']
+        if matrix.ndim != 2 or matrix.shape != (len(ids), 128) or len(set(ids)) != len(ids):
+            raise ValueError('Invalid feature cache mapping/shape')
+        face_ids = {f['face_id'] for f in cache['faces']}
+        if not set(ids) <= face_ids or len(face_ids) != len(cache['faces']):
+            raise ValueError('Feature cache has unknown/duplicate face IDs')
+        vectors = dict(zip(ids, matrix))
+        validate_vectors(vectors, dimension=128)
+        if any(not f.get('quality_reason') and f['face_id'] not in vectors for f in cache['faces']):
+            raise ValueError('Eligible face missing embedding')
+    return vectors
+
+
 def regroup(args):
     start = time.perf_counter()
     source, root = Path(args.source).resolve(), Path(args.input).resolve()
@@ -164,11 +181,7 @@ def regroup(args):
         raise ValueError("Cache input mismatch: photo content/path/list changed; run analyze again.")
     if sha256(source / "features.npz") != cache["features_sha256"]:
         raise ValueError("Feature cache checksum mismatch.")
-    with np.load(source / "features.npz", allow_pickle=False) as data:
-        ids, matrix = data["face_ids"], data["vectors"]
-        if len(ids) != len(matrix) or len(set(ids.tolist())) != len(ids) or not np.isfinite(matrix).all():
-            raise ValueError("Invalid feature cache mapping.")
-        vectors = dict(zip(ids.tolist(), matrix))
+    vectors = load_vectors(source, cache)
     run = new_run(args.output, root)
     for name in ("photos", "crops"):
         shutil.copytree(source / name, run / name, dirs_exist_ok=True)
@@ -180,11 +193,30 @@ def regroup(args):
 def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_seconds, cache, mode, assignments=None):
     from .reports import render
     t = time.perf_counter()
+    diagnostics, reassignment = {}, None
     if mode == 'apply-review':
         from .review import assign_review
         assign_review(faces, assignments)
     elif mode != 'correct-groups':
-        group_faces(faces, vectors, args.similarity_threshold, args.min_group_size, args.ambiguity_margin)
+        diagnostics = group_faces(faces, vectors, args.similarity_threshold, args.min_group_size, args.ambiguity_margin,
+                                  method=getattr(args, 'linkage', 'complete'))
+        if getattr(args, 'reassign_unknown', False):
+            reassignment = reassign_unknown(faces, vectors, args.reassign_threshold, args.reassign_margin,
+                                            args.representatives, args.reassign_min_support,
+                                            args.reassign_support_threshold, args.diversity_weight)
+        write_json(run / 'diagnostics.json', diagnostics)
+        flat = []
+        for f in faces:
+            d = diagnostics[f['face_id']]
+            row = {k:v for k,v in d.items() if not isinstance(v, (dict,list))}
+            row['stages'] = json.dumps(d['stages'], ensure_ascii=False)
+            row['candidates'] = json.dumps(d['candidates'], ensure_ascii=False)
+            row['reassignment'] = json.dumps(d.get('reassignment'), ensure_ascii=False)
+            flat.append(row)
+        fields = sorted({k for row in flat for k in row}) or ['face_id']
+        write_csv(run / 'diagnostics.csv', flat, fields)
+        if reassignment:
+            write_json(run / 'representatives.json', reassignment)
     group_seconds = time.perf_counter() - t
     for photo in photos:
         own = [f for f in faces if f["photo_id"] == photo["photo_id"]]
@@ -193,19 +225,29 @@ def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_
         photo["review"] = ";".join(sorted({f["review"] for f in own if f["review"]}))
     write_csv(run / "faces.csv", faces, ["photo_id", "relative_path", "face_id", "x", "y", "width", "height",
               "landmarks", "detection_score", "group_id", "label", "status", "reason", "blur_variance", "review", "crop_path",
-              "manual_person_id", "label_origin", "quality_reason"])
+              "manual_person_id", "label_origin", "quality_reason", "decision_state"])
     write_csv(run / "photos.csv", photos, ["photo_id", "relative_path", "sha256", "status", "error", "detected_faces",
               "people", "unknown_faces", "review", "width", "height", "detect_width", "detect_height", "scale_x", "scale_y"])
     from .review import context_hash
-    write_csv(run / "ground_truth_template.csv", [dict(f, manual_person_id=f.get('manual_person_id',''), include="1", review_type="", notes="",
+    write_csv(run / "ground_truth_template.csv", [dict(f, manual_person_id=f.get('manual_person_id',''), include="1", review_type="", annotation_status="", notes="",
               _context_sha256=context_hash(cache)) for f in faces],
-              ["face_id", "photo_id", "relative_path", "manual_person_id", "include", "review_type", "notes", "_context_sha256"])
+              ["face_id", "photo_id", "relative_path", "manual_person_id", "include", "annotation_status", "review_type", "notes", "_context_sha256"])
     write_csv(run / "photo_review_template.csv", [dict(p, missed_face_count="", false_detection_count="", notes="") for p in photos],
               ["photo_id", "relative_path", "status", "detected_faces", "missed_face_count", "false_detection_count", "notes"])
     render(run, photos, faces)
     config = vars(args).copy()
     config.pop("handler", None)
-    summary = dict(mode=mode, total_photos=len(photos), successful_photos=sum(p["status"] == "success" for p in photos),
+    from collections import Counter
+    sizes = Counter(f['group_id'] for f in faces if f['group_id'])
+    summary = dict(mode=mode, grouping_eligible_faces=sum(not f.get('quality_reason') and f['face_id'] in vectors for f in faces),
+                   singleton_groups=sum(n == 1 for n in sizes.values()),
+                   quality_excluded_faces=sum(bool(f.get('quality_reason')) for f in faces),
+                   held_faces=sum(f['status'] == 'unknown' and not f.get('quality_reason') for f in faces),
+                   reassigned_faces=sum(d.get('reassignment', {}).get('applied', False) for d in diagnostics.values()),
+                   unknown_reasons=dict(Counter(f['reason'] for f in faces if f['status'] == 'unknown')),
+                   same_photo_review_groups=sorted({f['group_id'] for f in faces if 'same_photo_same_group' in f['review']}),
+                   automatic_assignment_rate=sum(bool(f['group_id']) for f in faces)/len(faces) if faces else None,
+                   actual_grouping_config={k:getattr(args,k,None) for k in ('linkage','similarity_threshold','min_group_size','ambiguity_margin','reassign_unknown')}, total_photos=len(photos), successful_photos=sum(p["status"] == "success" for p in photos),
                    failed_photos=sum(p["status"] == "failed" for p in photos),
                    zero_face_photos=sum(p["status"] == "success" and p["detected_faces"] == 0 for p in photos),
                    detected_faces=len(faces), groups=len({f["group_id"] for f in faces if f["group_id"]}),
@@ -217,6 +259,7 @@ def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_
     write_json(run / "summary.json", summary)
     write_json(run / "run_config.json", dict(options=config, extraction_signature=cache["signature"], runtime=runtime(),
                grouping_version=('human-correction-v1' if mode in {'apply-review','correct-groups'} else GROUPING_VERSION),
+               ordering='face_id ascending; SciPy ties resolved on canonical condensed matrix; library version pinned',
                input_files=cache["input_files"], input_root=str(Path(args.input).resolve()),
                preprocessing=dict(channel_order="uint8 BGR, no manual normalization before OpenCV APIs", exif="Pillow exif_transpose once",
                 resize="aspect preserved; round dimensions; INTER_AREA; no upscaling/padding", coordinates="oriented original pixels, x/y/w/h and five x/y landmarks",

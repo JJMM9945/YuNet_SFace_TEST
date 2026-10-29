@@ -43,7 +43,15 @@ def read_truth(path, face_ids, context=None, require_context=False):
         manual=r['manual_person_id'].strip()
         if require_context and manual and not ID_PATTERN.fullmatch(manual):
             raise ValueError('Use pseudonymous IDs of 1-64 ASCII letters/digits/_/-, starting with a letter or digit.')
-        result[fid]=dict(manual_person_id=manual,include=include,notes=r.get('notes',''))
+        status = r.get('annotation_status', '').strip()
+        if status not in {'','labeled','uncertain','excluded','unlabeled'}:
+            raise ValueError(f'Invalid annotation_status: {fid}')
+        if status in {'uncertain','excluded','unlabeled'} and manual:
+            raise ValueError('Clear manual_person_id for uncertain/excluded/unlabeled rows')
+        if status == 'labeled' and (not manual or include != '1'):
+            raise ValueError('labeled needs manual_person_id and include=1')
+        result[fid]=dict(manual_person_id=manual,include=include,notes=r.get('notes',''),
+                         annotation_status=status or ('excluded' if include == '0' else 'labeled' if manual else 'unlabeled'))
     return result
 
 
@@ -107,7 +115,8 @@ def make_review(args):
     cache=json.loads((run/'cache.json').read_text(encoding='utf-8'))
     with (run/'faces.csv').open(encoding='utf-8-sig',newline='') as f:
         faces=list(csv.DictReader(f))
-    expected={f['face_id'] for f in cache['faces']}
+    experiment_path = run/'experiment.json'
+    expected = set(json.loads(experiment_path.read_text())['face_ids']) if experiment_path.exists() else {f['face_id'] for f in cache['faces']}
     if {f['face_id'] for f in faces}!=expected or len(faces)!=len(expected):
         raise ValueError('faces.csv and cache have different face mappings.')
     for f in faces:
