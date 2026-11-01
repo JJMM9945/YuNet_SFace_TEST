@@ -1,3 +1,4 @@
+# 역할: EXIF 방향 보정·BGR 변환·크기 조절·좌표 복원·얼굴 정렬과 정규화
 """Android port boundary: decode/orient -> BGR -> detection resize -> coordinates -> align -> feature."""
 from io import BytesIO
 import cv2

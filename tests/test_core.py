@@ -1,3 +1,4 @@
+# 역할: EXIF·좌표·품질·군집·HTML 안전성과 정답 평가의 기본 회귀 검사
 import csv
 import json
 import tempfile

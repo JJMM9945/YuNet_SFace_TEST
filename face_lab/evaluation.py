@@ -1,8 +1,9 @@
+# 역할: 부분 정답의 동일 인물 얼굴 쌍 Precision·Recall·F1 및 혼합/분리 평가
 """Pairwise evaluation using explicit identities, independent of temporary group IDs."""
 import csv
 import hashlib
 import json
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from .pipeline import write_json
@@ -10,29 +11,6 @@ from .pipeline import write_json
 
 def choose2(n):
     return n * (n - 1) // 2
-
-
-def read_split(path, photos):
-    """Photo-level disjoint split; blank/unassigned is excluded from dev and eval."""
-    with Path(path).open(encoding='utf-8-sig', newline='') as file:
-        reader = csv.DictReader(file)
-        if not {'photo_id', 'split'} <= set(reader.fieldnames or []):
-            raise ValueError('Split manifest needs photo_id,split')
-        rows = list(reader)
-    expected = {p['photo_id'] for p in photos}
-    result = {}
-    for row in rows:
-        pid, split = row['photo_id'], row['split'].strip()
-        if pid not in expected or pid in result or split not in {'', 'unassigned', 'dev', 'eval'}:
-            raise ValueError(f'Invalid/duplicate photo split: {pid}')
-        result[pid] = split or 'unassigned'
-    if set(result) != expected:
-        raise ValueError('Split manifest must list every source photo exactly once')
-    return result
-
-
-def split_hash(splits):
-    return hashlib.sha256(json.dumps(splits, sort_keys=True).encode()).hexdigest()
 
 
 def read_annotations(path, faces, cache=None):
@@ -108,22 +86,7 @@ def evaluate(args):
         faces = list(csv.DictReader(file))
     cache = json.loads((run/'cache.json').read_text(encoding='utf-8')) if (run/'cache.json').exists() else None
     annotations = read_annotations(args.ground_truth, cache['faces'] if cache else faces, cache)
-    subset = getattr(args, 'subset', 'all')
-    experiment_path = run/'experiment.json'
-    experiment = json.loads(experiment_path.read_text()) if experiment_path.exists() else {}
-    if experiment.get('subset', 'all') != 'all' and subset != experiment['subset']:
-        raise ValueError('Use the same evaluation subset as the experiment')
-    if subset != 'all':
-        if experiment.get('subset') != subset:
-            raise ValueError('First group only the requested subset using compare; filtering groups built with both dev/eval leaks cross-set membership')
-        if not getattr(args, 'split_manifest', None) or not cache:
-            raise ValueError('dev/eval requires --split-manifest and extraction cache')
-        splits = read_split(args.split_manifest, cache['photos'])
-        if experiment.get('split_sha256') and split_hash(splits) != experiment['split_sha256']:
-            raise ValueError('Evaluation split differs from grouping experiment')
-        faces = [f for f in faces if splits[f['photo_id']] == subset]
     result = pair_metrics(faces, annotations)
-    result['subset'] = subset
     result['ground_truth_sha256'] = hashlib.sha256(Path(args.ground_truth).read_bytes()).hexdigest()
     output = Path(args.output) if args.output else run/'evaluations'
     output.mkdir(parents=True, exist_ok=True)

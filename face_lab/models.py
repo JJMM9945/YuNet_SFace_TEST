@@ -1,3 +1,4 @@
+# 역할: 공식 YuNet·SFace 다운로드·SHA 검증 및 로컬 CPU 모델 로딩
 """Only prepare() may access the network. Inference only reads local files."""
 import hashlib
 import json

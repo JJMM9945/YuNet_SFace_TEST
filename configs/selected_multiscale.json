@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "name": "user_selected_multiscale_075_average",
+  "selected_date": "2026-11-01 Asia/Seoul",
+  "note": "Recorded CLI defaults; this JSON is a settings record, not a --config input. No baseline preservation, manual correction, or identity-reference assignment by default.",
+  "options": {
+    "score_threshold": 0.75,
+    "detection_sides": [960, 1600, 2400],
+    "max_side": 1600,
+    "nms_threshold": 0.30,
+    "top_k": 5000,
+    "linkage": "average",
+    "similarity_threshold": 0.40,
+    "ambiguity_margin": 0.01,
+    "min_group_size": 1,
+    "min_face_size": 40,
+    "min_blur": 50,
+    "reassign_unknown": false
+  }
+}

@@ -1,3 +1,4 @@
+// 역할: 익명 ID 수동 검토 UI의 CSV·출처·분리 입력 모의 검사
 // Dependency-free JS smoke tests. Run: node tests/test_review_ui.js
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
 class Element {

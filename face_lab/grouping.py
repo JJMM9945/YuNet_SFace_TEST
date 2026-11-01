@@ -1,4 +1,5 @@
-"""Deterministic agglomerative cosine grouping and frozen multi-reference recovery.
+# 역할: 코사인 거리 기반 군집화·품질/모호성 보류·같은 사진의 혼합 검토 표시
+"""Deterministic agglomerative cosine grouping.
 
 Complete: max cross distance = 1 - min cross similarity.
 Average (UPGMA): mean cross distance = 1 - mean cross similarity.
@@ -177,83 +178,3 @@ def group_faces(faces, vectors, threshold=0.45, min_group=2, margin=0.03, diagno
     if diagnostics is not None:
         diagnostics.update(records)
     return records
-
-
-def quality_score(f):
-    """Geometric mean: detector confidence, min-side/160, aligned blur/200 (all clipped to [0,1])."""
-    values = [f.get('detection_score', 0) or 0, min(f.get('width',0), f.get('height',0))/160,
-              (f.get('blur_variance',0) or 0)/200]
-    return float(np.prod(np.clip(values, 0, 1)) ** (1/3))
-
-
-def select_representatives(members, vectors, count=3, diversity_weight=0.3):
-    remaining = sorted(members, key=lambda f: f['face_id'])
-    selected, audit = [], []
-    while remaining and len(selected) < count:
-        scored = []
-        for f in remaining:
-            q = quality_score(f)
-            diversity = min((float(1-np.clip(vectors[f['face_id']] @ vectors[s['face_id']], -1, 1))/2 for s in selected), default=0)
-            value = (1-diversity_weight)*q + diversity_weight*diversity if selected else q
-            scored.append((value, f, q, diversity))
-        value, f, q, diversity = min(scored, key=lambda t: (-t[0], t[1]['face_id']))
-        audit.append(dict(face_id=f['face_id'], quality_score=q, diversity=diversity, selection_score=value))
-        selected.append(f); remaining.remove(f)
-    return selected, audit
-
-
-def reassign_unknown(faces, vectors, threshold=.45, margin=.03, representative_count=3,
-                     min_support=2, support_threshold=.4, diversity_weight=.3):
-    if representative_count < min_support or min_support < 2:
-        raise ValueError('Reassignment requires at least two supporting representatives')
-    groups = {}
-    for f in faces:
-        if f['group_id'] and not f.get('quality_reason'):
-            groups.setdefault(f['group_id'], []).append(f)
-    frozen, selections = {}, {}
-    for gid, members in sorted(groups.items()):
-        frozen[gid], selections[gid] = select_representatives(members, vectors, representative_count, diversity_weight)
-    # All scores refer ONLY to this frozen snapshot. Recoveries cannot propagate.
-    for f in sorted(faces, key=lambda f: f['face_id']):
-        d = f['diagnostic']
-        before = dict(state=d['state'], group_id=f['group_id'], reason=f['reason'])
-        d['before_reassignment'] = before
-        if f['group_id'] or d['quality_reason']:
-            d['reassignment'] = dict(applied=False, reason='already_assigned' if f['group_id'] else 'quality_excluded')
-            continue
-        candidates = []
-        for gid, reps in frozen.items():
-            scores = [float(np.clip(vectors[f['face_id']] @ vectors[r['face_id']], -1, 1)) for r in reps]
-            candidates.append(dict(group_id=gid, score=float(np.mean(scores)),
-                                   representatives=[dict(face_id=r['face_id'], cosine_similarity=s) for r,s in zip(reps,scores)],
-                                   support_count=sum(s >= support_threshold for s in scores)))
-        candidates.sort(key=lambda c: (-c['score'], c['group_id']))
-        record = candidate_fields(candidates, threshold, margin)
-        best = candidates[0] if candidates else None
-        if not best:
-            reason = 'no_candidate_groups'
-        elif best['score'] < threshold:
-            reason = 'representative_group_score_below_threshold'
-        elif best['support_count'] < min_support:
-            reason = 'insufficient_representative_support'
-        elif record['candidate_gap'] is not None and record['candidate_gap'] < margin:
-            reason = 'representative_candidate_margin_insufficient'
-        else:
-            reason = 'frozen_multi_representative_assignment'
-            f.update(group_id=best['group_id'], label='인물'+best['group_id'][6:], status='grouped', reason='')
-        applied = bool(f['group_id'])
-        if not applied:
-            f['reason'] = reason
-        record.update(applied=applied, reason=reason, min_support=min_support, support_threshold=support_threshold,
-                      score_definition='arithmetic mean of ALL frozen representative cosine similarities',
-                      missing_runner_up_policy='no competition test when only one group; score and >=2 supports still required')
-        d['reassignment'] = record
-        d['stages'].append(dict(stage='reassignment', state='assigned' if applied else 'held', group_id=f['group_id'], reason=reason))
-        d.update(final_group_id=f['group_id'], state='assigned' if applied else 'held', reason=f['reason'])
-        f['decision_state'] = d['state']
-    mark_same_photo(faces)
-    return dict(representatives=selections, score='mean_all_representatives', threshold=threshold, margin=margin,
-                representative_count=representative_count, min_support=min_support, support_threshold=support_threshold,
-                diversity_weight=diversity_weight, quality_formula='cuberoot(clip(det,0,1)*clip(min_side/160,0,1)*clip(blur/200,0,1))',
-                selection_formula='first: quality; subsequent: (1-diversity_weight)*quality + diversity_weight*min((1-cos)/2)',
-                frozen=True)

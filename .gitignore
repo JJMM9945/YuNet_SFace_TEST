@@ -1,12 +1,21 @@
 .venv/
+*_dataset/
+*.docx
+*.pdf
+*.download
 .DS_Store
 __pycache__/
 *.pyc
 ljm_dataset/
+ljm2_dataset/
 gt_dataset/
 models/
 results/
 validation_data/
+step1기록 저장/
+step*_annotations*.json
+missed_faces*.csv
+photo_review*.csv
 *.onnx
 *.npz
 *.npy

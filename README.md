@@ -1,150 +1,101 @@
-# YuNet + SFace 사진 인물 그룹화 테스트
+# YuNet + SFace 로컬 얼굴 테스트
 
-개인 사진에서 **YuNet으로 얼굴을 검출하고 SFace로 특징을 추출한 뒤, 비슷한 얼굴을 그룹화**하는 로컬 Python 프로젝트입니다. macOS와 Windows에서 CPU로 테스트합니다. 원본 사진을 변경하거나 사진·얼굴·벡터를 외부 서버로 보내지 않으며, 모델을 재학습하지 않습니다.
+사진에서 얼굴 검출 → 특징 벡터 추출 → 비슷한 얼굴의 임시 그룹 생성 프로젝트. Android 온디바이스 사진 검색 적용 전 PC CPU 검증 목적. 실제 이름 지정·모델 재학습 범위 제외.
 
-**처음 테스트할 때는 `average_same_threshold`와 같은 설정을 사용하세요.** 프로젝트 작성자가 개인 사진 결과를 직접 확인했을 때 이 방식이 실제 인물 구분에 가장 가깝다고 판단해 후속 테스트의 시작 설정으로 선택했습니다. 정답 기반 정확도 평가나 모든 사진에 대한 최적 설정 확정은 아닙니다.
+## 팀원 시작 순서
 
-| 문서 | 내용 |
-|---|---|
-| [README.md](README.md) | 시작 설정, 분석 실행, 결과 확인 |
-| [노트북_테스트_준비.md](노트북_테스트_준비.md) | 작성자 Mac의 Git 업로드 준비, Mac/Windows 설치·검사 |
-| [GROUPING_EXPERIMENTS.md](GROUPING_EXPERIMENTS.md) | average 적용 원리, 비교 실험, 정답 작성, 개발/평가 분리 |
-| [TESTING.md](TESTING.md) | 실제 실행 결과·검사와 과거 기록, 기술 기준 |
-
-## 먼저 사용할 테스트 설정
-
-| 항목 | 값 | 의미 |
-|---|---|---|
-| 모델 | YuNet + SFace | 검출 및 얼굴 특징 추출 |
-| `--linkage` | **average** | 두 그룹 사이 모든 얼굴 쌍의 평균 유사도로 병합 판단 |
-| `--similarity-threshold` | **0.40** | 코사인 유사도 기준. 같은 사람일 확률 40%라는 뜻은 아님 |
-| `--ambiguity-margin` | **0.01** | 자기 그룹과 경쟁 그룹 점수가 비슷하면 보류 |
-| `--min-group-size` | **1** | 얼굴 한 장만 있는 그룹도 허용 |
-| 미확인 재배정 | **사용하지 않음** | `--reassign-unknown` 옵션을 붙이지 않음 |
-| `--score-threshold` | 0.80 | YuNet 검출 기준 |
-| `--max-side` | 1600 | 검출할 이미지의 최대 긴 변 |
-| `--min-face-size` / `--min-blur` | 40 / 50 | 원본 얼굴 최소 변(px) / 정렬 얼굴의 흐림 점수 기준 |
-| `--nms-threshold` / `--top-k` | 0.30 / 5000 | 검출 중복 억제 / 후보 상한 |
-
-complete는 가장 낮은 교차 유사도를 기준으로 판단하므로 같은 사람도 촬영 조건에 따라 나뉠 수 있습니다. average는 평균을 사용해 일부 낮은 유사도를 보완할 수 있습니다. 그만큼 다른 사람이 섞이지 않았는지도 함께 확인해야 합니다.
-
-**코드 기본값은 변경하지 않았습니다.** 옵션을 생략하면 complete·유사도 0.45·모호성 폭 0.03·최소 그룹 2·검출 0.9로 실행됩니다. 아래 명령의 옵션을 모두 사용하세요. `average_same_threshold`는 비교 결과 폴더 이름이며, 실제 선택 옵션은 `--linkage average`입니다.
-
-## 설치
-
-프로젝트 폴더에서 실행합니다. Python **3.11 또는 3.12 64비트**를 사용하고, 다른 OS의 `.venv`를 복사하지 마세요. `requirements.txt`가 macOS와 Windows에 맞는 NumPy·SciPy 버전을 선택합니다. 전체 clone·설치 절차는 [노트북 준비 안내](노트북_테스트_준비.md)에 있습니다.
-
-macOS 터미널(zsh/bash), Python 3.11이 설치된 경우:
-
-```bash
-python3.11 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-mkdir -p ljm_dataset
-.venv/bin/python -m face_lab prepare-models
-.venv/bin/python -m face_lab check
-```
-
-Windows **PowerShell**, Python 3.12가 설치된 경우:
+Python **3.11 또는 3.12**, Windows PowerShell 기준. clone 후 프로젝트 루트에서 실행.
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-New-Item -ItemType Directory -Force -Path .\ljm_dataset | Out-Null
 .\.venv\Scripts\python.exe -m face_lab prepare-models
 .\.venv\Scripts\python.exe -m face_lab check
+New-Item -ItemType Directory -Force ljm_dataset
+# ljm_dataset 폴더에 테스트 사진 복사
+.\.venv\Scripts\python.exe -m face_lab analyze --input .\ljm_dataset --output .\results
 ```
 
-Python 3.12를 설치한 Mac은 `python3.11` 대신 `python3.12`로 가상환경을 만듭니다. Windows에서 3.11을 설치했다면 `py -3.11`을 사용합니다. 이미 준비된 가상환경은 다시 만들 필요가 없습니다. 위 명령은 가상환경 활성화를 요구하지 않으므로 PowerShell 실행 정책 변경도 필요 없습니다. 모델 준비와 패키지 설치에는 인터넷이 필요하고, 이후 분석은 로컬에서 수행합니다.
+모델 준비 명령만 인터넷 사용. 분석·재그룹화·검토·평가의 로컬 실행. 사진·모델·결과·수동 기록은 Git 미포함이며 각 PC에서 별도 준비. 원본 이동·수정·삭제 없음. 빈 입력 폴더도 분석 가능.
 
-## average 설정으로 분석
+macOS: `python3.12 -m venv .venv` 후 위 명령의 `.\.venv\Scripts\python.exe`를 `.venv/bin/python`으로 변경. 의존성 버전은 [requirements.txt](requirements.txt)에 고정.
 
-테스트할 사진을 `ljm_dataset/`에 복사한 뒤 **사용 중인 OS의 명령 하나**를 실행합니다. Git clone에는 개인 사진·모델·기존 결과가 포함되지 않습니다. 각 테스트 PC에서 새로 분석하세요.
+## 현재 테스트 설정
 
-macOS:
+CLI 기본값과 [설정 기록](configs/selected_multiscale.json)의 일치. JSON은 기록용이며 `--config` 입력 기능 없음.
 
-```bash
-.venv/bin/python -m face_lab analyze --input ljm_dataset --output results/average_runs --linkage average --similarity-threshold 0.40 --ambiguity-margin 0.01 --min-group-size 1 --score-threshold 0.80 --max-side 1600 --min-face-size 40 --min-blur 50 --nms-threshold 0.30 --top-k 5000
-```
+| 항목 | 값 | 의미·선택 이유 |
+|---|---|---|
+| YuNet 검출 크기 | 960·1600·2400px | 세 크기의 검출 결합을 통한 작은 얼굴 누락 감소 |
+| 검출 점수 | 0.75 이상 | 기존 0.8보다 누락 감소를 위한 시작값 |
+| 중복 제거 | IoU 0.30 | 원본 좌표에서 겹치는 검출 상자의 중복 제거 |
+| SFace | 정렬 → 128차원 특징 → L2 정규화 | 자세·위치 차이 완화 및 비교 가능한 벡터 생성 |
+| 그룹화 | average, 유사도 0.40 | 그룹 간 평균 유사도 기준; 기존 complete 대비 과도한 분리 완화 |
+| 모호성 폭 | 0.01 | 경쟁 그룹과의 판단 차이가 작은 얼굴의 보류 |
+| 최소 그룹 크기 | 1 | 단독 인물의 임시 그룹 허용 |
+| 품질 제한 | 얼굴 40px, 흐림 지표 50 | 작은 얼굴·흐린 얼굴의 무리한 그룹 배정 제한 |
 
-Windows PowerShell:
+사용자 사진 검토에 따른 실험 시작값. 검증된 정확도 기준·모든 사진의 최적값 의미 아님. 대표 얼굴 재배정·기존 검출 보존·수동 보정의 자동 적용 없음.
 
-```powershell
-.\.venv\Scripts\python.exe -m face_lab analyze --input .\ljm_dataset --output .\results\average_runs --linkage average --similarity-threshold 0.40 --ambiguity-margin 0.01 --min-group-size 1 --score-threshold 0.80 --max-side 1600 --min-face-size 40 --min-blur 50 --nms-threshold 0.30 --top-k 5000
-```
+코사인 유사도 = 정규화 벡터의 내적, **클수록 가까움**. 거리 = `1 - 유사도`. average 군집의 절단 거리 `1 - 0.40`. 개별 얼굴 쌍 전체의 유사도 0.40 보장 아님. 평균 기준에 따른 다른 인물 혼합·같은 인물 분리 가능성. 같은 사진의 여러 얼굴이 한 그룹인 경우 검토 표시. 실행별 그룹 번호와 영구 `person_id`의 구분.
 
-결과는 매번 새 `results/average_runs/run_.../` 폴더에 저장됩니다. 완료 메시지의 `Result:` 경로를 확인하세요. 아래 `run_실제_폴더`는 **자신의 실행에서 출력된 폴더 이름으로 교체**합니다.
+## 결과 확인·재검사
 
-macOS:
+명령 마지막 `Result:` 폴더의 **index.html** 열기. 인물 목록·미확인·검토 필요·사진별 필터, 파일명/ID 검색, 확대, 최대4얼굴 비교 기능. 방향키 이동·Esc 닫기. 서버·CDN 불필요. 비교 선택과 실제 그룹 수정의 구분.
 
-```bash
-FACE_RUN='results/average_runs/run_실제_폴더'
-open "$FACE_RUN/index.html"
-```
-
-Windows PowerShell:
-
-```powershell
-$FaceRun = '.\results\average_runs\run_실제_폴더'
-Invoke-Item "$FaceRun\index.html"
-```
-
-첫 화면에서 인물별 얼굴 모음, 미확인 후보·점수·사유, 검출 박스·랜드마크와 정렬 얼굴을 확인하세요. **다른 사람이 같은 그룹에 섞인 경우, 같은 사람이 여러 그룹으로 나뉜 경우를 모두 기록**하세요. 같은 사진의 서로 다른 얼굴이 같은 그룹이면 검토 표시가 나옵니다. 거울·사진 속 사진 등의 예외가 있어 자동 금지하지 않습니다.
-
-## 기존 로컬 벡터로 같은 설정 적용
-
-`--source`는 **동일한 PC·사진에서 생성한 실제 실행 폴더**로 바꾸세요. 다른 OS의 캐시는 런타임 차이로 거부될 수 있으므로 처음에는 위 `analyze`를 사용합니다.
-
-macOS:
-
-```bash
-.venv/bin/python -m face_lab regroup --source "$FACE_RUN" --input ljm_dataset --output results/average_runs --linkage average --similarity-threshold 0.40 --ambiguity-margin 0.01 --min-group-size 1
-```
-
-Windows PowerShell:
-
-```powershell
-.\.venv\Scripts\python.exe -m face_lab regroup --source "$FaceRun" --input .\ljm_dataset --output .\results\average_runs --linkage average --similarity-threshold 0.40 --ambiguity-margin 0.01 --min-group-size 1
-```
-
-`regroup`는 source의 검출·품질 필터·벡터를 그대로 재사용합니다. 추출 설정도 위 시작 설정과 같아야 전체 조건이 같습니다. 입력·모델·전처리·라이브러리가 달라져 캐시 검증이 실패하면 새 `analyze`가 필요합니다.
-
-## 실제 실행 기록과 결과 파일
-
-2026-10-29 Mac에서 같은 54장·145개 임베딩으로 비교했습니다. 작성자가 확인하고 선택한 average 결과는 **48그룹, 미확인 5개(모호성 3·박스 경계 1·흐림 1)**입니다. complete 기준선은 59그룹·미확인 18개였습니다. average를 별도 `regroup`으로 적용했을 때도 얼굴 구성원이 같았습니다. **48은 정답 인원 수가 아니며, 다른 사진·OS에서 같은 개수가 나오는 것을 합격 기준으로 삼지 않습니다.** 개인 사진 전체 정답이 없어 Precision·Recall·F1은 미평가입니다.
-
-| 파일 | 확인할 내용 |
+| 파일 | 역할 |
 |---|---|
-| `index.html` | 인물별 모음, 미확인 후보, 검출·정렬 확인 |
-| `run_config.json`, `summary.json` | 실제 적용 설정, 버전, 개수·사유·시간 |
-| `faces.csv`, `photos.csv` | 얼굴별 상태와 사진별 검출·실패 기록 |
-| `diagnostics.json`, `diagnostics.csv` | 개별 유사도와 그룹 점수, 후보, 판정 단계 |
-| `ground_truth_template.csv` | face_id별 익명 실제 인물 ID 입력 양식 |
-| `photo_review_template.csv` | 미검출·오검출 검토 양식 |
-| `annotated/`, `geometry/`, `crops/`, `montages/` | 박스·랜드마크, 확대, 정렬 얼굴, 그룹 모음 |
-| `features.npz`, `cache.json` | 로컬 벡터와 캐시 검증 정보 |
+| index.html / annotated / montages | 결과 화면·검출 상자 이미지·인물별 모음 |
+| faces.csv / photos.csv | 얼굴별·사진별 결과; 얼굴0개 사진 포함, Excel용 UTF-8 BOM |
+| summary.json / summary.md | 검출·그룹·미확인 수, 실패·소요 시간 |
+| run_config.json / detection_inputs.json | 실제 옵션·모델 SHA·OpenCV 버전·전처리·크기별 입력 |
+| cache.json / features.npz | 사진 해시·벡터·face_id 대응; 묶음 보관 필요 |
+| ground_truth_template.csv / photo_review_template.csv | 수동 인물 정답·미검출/오검출 양식 |
+| diagnostics.json | 그룹 판단 근거·경쟁 후보; 유사도와 정확도 확률의 구분 |
 
-CSV는 UTF-8 BOM으로 저장합니다. Excel에서는 face_id와 익명 ID 열을 텍스트로 유지하세요. 이미지에 한글 폰트가 없으면 영문 그룹 ID를 표시합니다.
-
-## 정답 검토와 평가
-
-macOS:
-
-```bash
-.venv/bin/python -m face_lab review --run "$FACE_RUN"
-# 출력된 review_*.html에서 작성한 CSV를 해당 실행 폴더의 ground_truth.csv로 저장한 뒤 실행
-.venv/bin/python -m face_lab evaluate --run "$FACE_RUN" --ground-truth "$FACE_RUN/ground_truth.csv"
-```
-
-Windows PowerShell:
+특징 추출 반복 없는 그룹 임계값 변경 예시. `--source`에 실제 폴더 지정.
 
 ```powershell
-.\.venv\Scripts\python.exe -m face_lab review --run "$FaceRun"
-# 출력된 review_*.html에서 작성한 CSV를 해당 실행 폴더의 ground_truth.csv로 저장한 뒤 실행
-.\.venv\Scripts\python.exe -m face_lab evaluate --run "$FaceRun" --ground-truth "$FaceRun\ground_truth.csv"
+.\.venv\Scripts\python.exe -m face_lab regroup --input .\ljm_dataset --source .\results\run_실제폴더 --output .\results --similarity-threshold 0.42
+.\.venv\Scripts\python.exe -m face_lab review --run .\results\run_실제폴더
+.\.venv\Scripts\python.exe -m face_lab evaluate --run .\results\run_실제폴더 --ground-truth .\정답.csv
+.\.venv\Scripts\python.exe -m face_lab --help
+.\.venv\Scripts\python.exe -m face_lab analyze --help
 ```
 
-같은 사람은 같은 익명 ID(`A01` 등), 다른 사람은 다른 ID를 입력합니다. 자동 그룹 번호를 정답으로 간주하지 마세요. 미입력은 빈칸, 판단 불가는 `annotation_status=uncertain`, 평가 제외는 `include=0`으로 구분합니다. 정답이 없으면 지표를 계산하지 않습니다. 평가 시 미확인은 각기 다른 단독 예측으로 취급하므로 같은 사람 쌍을 놓치면 Recall에 반영됩니다.
+모델·전처리·실행 라이브러리·사진 내용/목록/상대 경로·벡터 체크섬 불일치 시 캐시 재사용 차단. 재분석 필요.
 
-임계값 비교·재배정·개발/평가 분리는 [그룹화 실험 안내](GROUPING_EXPERIMENTS.md)를 따릅니다. `compare`의 `--linkage average`는 임계값 비교·재배정의 기반을 average로 지정하지만, complete 기준선과 재배정 실험도 함께 생성합니다. **average만 적용하는 첫 테스트는 위 `analyze` 또는 `regroup`입니다.** Windows에서 `compare`는 디렉터리 심볼릭 링크 생성 권한이 필요할 수 있습니다.
+`review` HTML에서 가명 ID 입력 및 CSV 저장 후 평가 가능. 미입력·제외·불확실 얼굴의 평가 제외. 포함된 미확인은 서로 다른 단독 예측으로 처리; 같은 사람의 연결 누락은 FN 반영. 동일 인물 얼굴 **쌍** 기준 Precision·Recall·F1 계산; 임시 번호 비교 아님. 미검출 얼굴의 평가는 해당 CSV만으로 불가. [검증 기준](TESTING.md) 참고.
 
-사진·얼굴·벡터·수동 정답·결과는 로컬에 보관합니다. Git 업로드 전 확인 방법은 [노트북 준비 안내](노트북_테스트_준비.md#작성자-macos에서-git-업로드-준비)를 참고하세요.
+## 코드 구조·전처리
+
+| 경로 | 담당 |
+|---|---|
+| face_lab/__main__.py | CLI·기본 설정·입력값 검증 |
+| models.py | 공식 모델 다운로드·크기/SHA 검증·CPU 로딩 |
+| preprocess.py / detection.py | EXIF·크기/좌표 변환·정렬/특징·여러 크기 검출 |
+| grouping.py / pipeline.py | 군집화·품질/모호성 보류·사진 처리·캐시·CSV |
+| reports.py / report_ui.py / results_ui.html | 이미지·안전한 HTML 데이터·결과 UI |
+| review.py / review_ui.html / evaluation.py | 수동 정답 입력·출처 확인·쌍 평가 |
+| tests / configs | 현재 기능 검사·선택 설정 기록 |
+
+Pillow EXIF 방향 보정1회 → uint8 BGR. 종횡비 유지·INTER_AREA 축소·확대/패딩 없음. 반올림된 가로/세로 비율로 상자와 5개 랜드마크를 **방향 보정된 원본 좌표**로 복원. 원본에서 `alignCrop(112×112) → feature → L2` 수행. 세 검출 결과의 원본 좌표 점수순 NMS 통합. 입력 정렬·CPU1스레드·난수시드0 적용. 다른 OS/라이브러리의 부동소수점 차이 가능성.
+
+## 검증·Git 공유
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"
+.\.venv\Scripts\python.exe -m pip check
+git status --short
+git ls-files
+```
+
+공유 대상: 코드·HTML 템플릿·tests·configs·requirements·README·TESTING·.gitignore. 사진·얼굴·벡터·Word·결과·수동 기록·가상환경의 Git 미포함 확인 필요. 새 데이터셋 폴더도 `.gitignore` 등록 또는 기본 `ljm_dataset` 사용 권장. 저장소 생성·commit·push의 사용자 수행.
+
+## 과거 테스트 보관 자료
+
+과거 결과의 [TESTING.md](TESTING.md) 통합. [과거 테스트 기록 Word](results/reports/20261101_test_archive/얼굴AI_과거테스트기록_T01-T09.docx)·결과 그림·수치 근거의 `results/reports/20261101_test_archive/` 로컬 보존, clone 시 미포함. 기존 ‘발표참고용’ 명칭을 **과거 테스트 보관 자료**로 변경. 발표 활용 여부는 사용자 선택.
+
+과거 실험 도구·테스트·중복 문서는 `results/reports/cleanup_backup_20261102/`에 복구용 보관. 현재 실행·Git 공유 대상에서 제외. `step1기록 저장/`의 수동 원본 보존.
+
+모델 출처: [OpenCV API](https://docs.opencv.org/4.x/d0/dd4/tutorial_dnn_face.html), [Zoo YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) MIT, [Zoo SFace](https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface) Apache-2.0. 다운로드 URL·고정 SHA의 `models.py` 기록, 준비 결과·라이선스의 로컬 `models/` 보관.

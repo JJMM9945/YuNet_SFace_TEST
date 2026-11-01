@@ -1,3 +1,4 @@
+# 역할: CLI 명령과 현재 기본 설정 검증 및 분석·검토 명령 분기
 import argparse
 import sys
 
@@ -9,58 +10,32 @@ def parser():
     prep.add_argument("--models", default="models")
     check = sub.add_parser("check", help="Dependency, model loading and blank-image forward-pass check.")
     check.add_argument("--models", default="models")
-    for name in ("analyze", "regroup", "compare"):
+    for name in ("analyze", "regroup"):
         s = sub.add_parser(name, help="Local analysis" if name == "analyze" else "Regroup existing features after strict cache validation")
         s.add_argument("--input", default="ljm_dataset")
         s.add_argument("--output", default="results")
         s.add_argument("--models", default="models")
-        s.add_argument("--similarity-threshold", type=float, default=0.45, help="Cosine similarity >= this; experimental starting value")
-        s.add_argument("--min-group-size", type=int, default=2)
-        s.add_argument("--ambiguity-margin", type=float, default=0.03)
-        s.add_argument('--linkage', choices=['complete','average'], default='complete')
-        s.add_argument('--reassign-unknown', action='store_true')
-        s.add_argument('--reassign-threshold', type=float, default=.45)
-        s.add_argument('--reassign-margin', type=float, default=.03)
-        s.add_argument('--representatives', type=int, default=3)
-        s.add_argument('--reassign-min-support', type=int, default=2)
-        s.add_argument('--reassign-support-threshold', type=float, default=.4)
-        s.add_argument('--diversity-weight', type=float, default=.3)
-        if name == 'compare':
-            s.add_argument('--thresholds', type=float, nargs='*', default=[.35,.45])
-            s.add_argument('--ground-truth')
-            s.add_argument('--split-manifest')
-            s.add_argument('--subset', choices=['all','dev','eval'], default='all')
-            s.add_argument('--selected-config', help='Required for eval: explicit config frozen from a dev comparison')
+        s.add_argument("--similarity-threshold", type=float, default=0.40, help="Cosine similarity >= this; experimental starting value")
+        s.add_argument("--min-group-size", type=int, default=1)
+        s.add_argument("--ambiguity-margin", type=float, default=0.01)
+        s.add_argument('--linkage', choices=['complete','average'], default='average')
+        s.set_defaults(reassign_unknown=False)
         if name == "analyze":
-            s.add_argument("--score-threshold", type=float, default=0.9)
+            s.add_argument("--score-threshold", type=float, default=0.75)
             s.add_argument("--nms-threshold", type=float, default=0.3)
             s.add_argument("--top-k", type=int, default=5000)
             s.add_argument("--max-side", type=int, default=1600)
+            s.add_argument('--detection-sides', type=int, nargs='+', default=[960,1600,2400], help='Selected default: 960 1600 2400; use --detection-sides 1600 for a single scale; global original-coordinate NMS')
             s.add_argument("--min-face-size", type=float, default=40, help="Oriented original pixels")
             s.add_argument("--min-blur", type=float, default=50, help="Laplacian variance on aligned 112x112 crop")
         else:
             s.add_argument("--source", required=True, help="Previous run directory containing cache.json and features.npz")
-    select = sub.add_parser('select-config', help='Freeze an explicitly selected dev experiment; never ranks by counts')
-    select.add_argument('--comparison', required=True)
-    select.add_argument('--experiment', required=True)
     evaluation = sub.add_parser("evaluate", help="Pairwise precision/recall/F1 only with manual ground truth")
     evaluation.add_argument("--run", required=True)
     evaluation.add_argument("--ground-truth", required=True)
     evaluation.add_argument("--output", help="Evaluation JSON directory")
-    evaluation.add_argument('--split-manifest')
-    evaluation.add_argument('--subset', choices=['all','dev','eval'], default='all')
-    review = sub.add_parser('review',help='Create an offline manual merge/split review HTML next to a run')
+    review = sub.add_parser('review',help='Create offline ground-truth annotation HTML next to a run')
     review.add_argument('--run',required=True)
-    for name in ('apply-review','correct-groups'):
-        s=sub.add_parser(name,help='Apply explicit human annotations or pair constraints to a new result')
-        s.add_argument('--source',required=True)
-        s.add_argument('--input',default='ljm_dataset')
-        s.add_argument('--output',default='results')
-        s.add_argument('--models',default='models')
-        if name=='apply-review':
-            s.add_argument('--ground-truth',required=True)
-        else:
-            s.add_argument('--corrections',required=True)
     return p
 
 
@@ -75,16 +50,11 @@ def main():
             p.error("similarity threshold must be [-1,1], margin [0,2]")
         if a.min_group_size < 1:
             p.error("min-group-size must be >= 1")
-    if hasattr(a, 'reassign_threshold'):
-        if not -1 <= a.reassign_threshold <= 1 or not -1 <= a.reassign_support_threshold <= 1 or not 0 <= a.reassign_margin <= 2:
-            p.error('Invalid reassignment thresholds')
-        if not 0 <= a.diversity_weight <= 1 or a.reassign_min_support < 2 or a.representatives < a.reassign_min_support:
-            p.error('representatives >= min support >= 2; diversity weight in [0,1]')
-        if any(not -1 <= t <= 1 for t in getattr(a, 'thresholds', [])):
-            p.error('thresholds must be in [-1,1]')
     for name in ("max_side", "top_k"):
         if hasattr(a, name) and getattr(a, name) < (32 if name == "max_side" else 1):
             p.error(f"{name} out of range")
+    if getattr(a, 'detection_sides', None) and any(side < 32 for side in a.detection_sides):
+        p.error('detection-sides must each be >=32')
     for name in ("min_face_size", "min_blur"):
         if hasattr(a, name) and not getattr(a, name) >= 0:
             p.error(f"{name} must be nonnegative")
@@ -106,21 +76,12 @@ def main():
             if v.size != 128 or not np.isfinite(v).all():
                 raise ValueError("SFace forward pass returned invalid features")
             print(f"OK OpenCV {cv2.__version__}; CPU model load and blank-image forward passes (not accuracy test)")
-        elif a.command in {'compare','select-config'}:
-            from .experiments import compare, select_config
-            (compare if a.command == 'compare' else select_config)(a)
         elif a.command == "evaluate":
             from .evaluation import evaluate
             evaluate(a)
         elif a.command == 'review':
             from .review import make_review
             make_review(a)
-        elif a.command == 'apply-review':
-            from .review import apply_review
-            apply_review(a)
-        elif a.command == 'correct-groups':
-            from .corrections import correct_groups
-            correct_groups(a)
         else:
             from .pipeline import analyze, regroup
             (analyze if a.command == "analyze" else regroup)(a)

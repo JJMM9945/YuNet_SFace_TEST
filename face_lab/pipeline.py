@@ -1,3 +1,4 @@
+# 역할: 사진 목록·해시·검출·특징 추출·그룹화·캐시·CSV·요약의 전체 실행 흐름
 import csv
 import hashlib
 import json
@@ -16,7 +17,7 @@ import scipy
 from . import VERSION, PREPROCESS_VERSION, GROUPING_VERSION
 from .models import MODELS, load, sha256, verify
 from .preprocess import decode_oriented, detection_input, to_original, extract, save_bgr
-from .grouping import group_faces, reassign_unknown, validate_vectors
+from .grouping import group_faces, validate_vectors
 
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 
@@ -74,7 +75,11 @@ def new_run(output, input_root):
 
 def extraction_signature(config):
     keys = ("score_threshold", "nms_threshold", "top_k", "max_side", "min_face_size", "min_blur")
-    return dict(runtime=runtime(), models=MODELS, extraction={k: config[k] for k in keys})
+    result = dict(runtime=runtime(), models=MODELS, extraction={k: config[k] for k in keys})
+    if config.get('detection_sides'):
+        from .detection import MULTISCALE_VERSION
+        result['extraction'].update(detection_sides=sorted(set(config['detection_sides'])), detection_version=MULTISCALE_VERSION)
+    return result
 
 
 def analyze(args):
@@ -104,11 +109,16 @@ def analyze(args):
             photo.update(detect_width=small.shape[1], detect_height=small.shape[0], scale_x=sx, scale_y=sy)
             t = time.perf_counter()
             try:
-                detector.setInputSize((small.shape[1], small.shape[0]))
-                _, detected = detector.detect(small)
+                if getattr(args, 'detection_sides', None):
+                    from .detection import multiscale_detect
+                    rows, inputs = multiscale_detect(detector, bgr, args.detection_sides, args.nms_threshold)
+                    photo['detection_inputs'] = inputs
+                else:
+                    detector.setInputSize((small.shape[1], small.shape[0]))
+                    _, detected = detector.detect(small)
+                    rows = [] if detected is None else [to_original(r, sx, sy) for r in detected]
             finally:
                 detection_seconds += time.perf_counter() - t
-            rows = [] if detected is None else [to_original(r, sx, sy) for r in detected]
             rows.sort(key=lambda r: (float(r[0]), float(r[1]), float(r[2]), float(r[3]), -float(r[14])))
             photo["detected_faces"] = len(rows)
             for number, row in enumerate(rows, 1):
@@ -190,33 +200,19 @@ def regroup(args):
     return finish(run, cache["photos"], cache["faces"], vectors, args, start, 0.0, 0.0, cache, "regroup")
 
 
-def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_seconds, cache, mode, assignments=None):
+def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_seconds, cache, mode):
     from .reports import render
     t = time.perf_counter()
-    diagnostics, reassignment = {}, None
-    if mode == 'apply-review':
-        from .review import assign_review
-        assign_review(faces, assignments)
-    elif mode != 'correct-groups':
-        diagnostics = group_faces(faces, vectors, args.similarity_threshold, args.min_group_size, args.ambiguity_margin,
-                                  method=getattr(args, 'linkage', 'complete'))
-        if getattr(args, 'reassign_unknown', False):
-            reassignment = reassign_unknown(faces, vectors, args.reassign_threshold, args.reassign_margin,
-                                            args.representatives, args.reassign_min_support,
-                                            args.reassign_support_threshold, args.diversity_weight)
-        write_json(run / 'diagnostics.json', diagnostics)
-        flat = []
-        for f in faces:
-            d = diagnostics[f['face_id']]
-            row = {k:v for k,v in d.items() if not isinstance(v, (dict,list))}
-            row['stages'] = json.dumps(d['stages'], ensure_ascii=False)
-            row['candidates'] = json.dumps(d['candidates'], ensure_ascii=False)
-            row['reassignment'] = json.dumps(d.get('reassignment'), ensure_ascii=False)
-            flat.append(row)
-        fields = sorted({k for row in flat for k in row}) or ['face_id']
-        write_csv(run / 'diagnostics.csv', flat, fields)
-        if reassignment:
-            write_json(run / 'representatives.json', reassignment)
+    diagnostics = group_faces(faces, vectors, args.similarity_threshold, args.min_group_size,
+                              args.ambiguity_margin, method=args.linkage)
+    write_json(run / 'diagnostics.json', diagnostics)
+    flat = []
+    for diagnostic in diagnostics.values():
+        row = {k:v for k,v in diagnostic.items() if not isinstance(v, (dict,list))}
+        row['stages'] = json.dumps(diagnostic['stages'], ensure_ascii=False)
+        row['candidates'] = json.dumps(diagnostic['candidates'], ensure_ascii=False)
+        flat.append(row)
+    write_csv(run / 'diagnostics.csv', flat, sorted({k for row in flat for k in row}) or ['face_id'])
     group_seconds = time.perf_counter() - t
     for photo in photos:
         own = [f for f in faces if f["photo_id"] == photo["photo_id"]]
@@ -234,7 +230,7 @@ def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_
               ["face_id", "photo_id", "relative_path", "manual_person_id", "include", "annotation_status", "review_type", "notes", "_context_sha256"])
     write_csv(run / "photo_review_template.csv", [dict(p, missed_face_count="", false_detection_count="", notes="") for p in photos],
               ["photo_id", "relative_path", "status", "detected_faces", "missed_face_count", "false_detection_count", "notes"])
-    render(run, photos, faces)
+    render(run, photos, faces, {k:v for k,v in vars(args).items() if k!='handler'})
     config = vars(args).copy()
     config.pop("handler", None)
     from collections import Counter
@@ -243,7 +239,6 @@ def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_
                    singleton_groups=sum(n == 1 for n in sizes.values()),
                    quality_excluded_faces=sum(bool(f.get('quality_reason')) for f in faces),
                    held_faces=sum(f['status'] == 'unknown' and not f.get('quality_reason') for f in faces),
-                   reassigned_faces=sum(d.get('reassignment', {}).get('applied', False) for d in diagnostics.values()),
                    unknown_reasons=dict(Counter(f['reason'] for f in faces if f['status'] == 'unknown')),
                    same_photo_review_groups=sorted({f['group_id'] for f in faces if 'same_photo_same_group' in f['review']}),
                    automatic_assignment_rate=sum(bool(f['group_id']) for f in faces)/len(faces) if faces else None,
@@ -254,16 +249,26 @@ def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_
                    unknown_faces=sum(f["status"] == "unknown" for f in faces),
                    review_faces=sum(bool(f["review"]) for f in faces), detection_seconds=detection_seconds,
                    feature_seconds=feature_seconds, grouping_seconds=group_seconds, total_seconds=time.perf_counter()-start,
-                   note=("Human corrections applied; not automatic accuracy or retraining." if mode in {'apply-review','correct-groups'}
-                         else "Counts are not accuracy. No ground truth evaluation performed."))
+                   note="Counts are not accuracy. No ground truth evaluation performed.")
     write_json(run / "summary.json", summary)
     write_json(run / "run_config.json", dict(options=config, extraction_signature=cache["signature"], runtime=runtime(),
-               grouping_version=('human-correction-v1' if mode in {'apply-review','correct-groups'} else GROUPING_VERSION),
+               grouping_version=GROUPING_VERSION,
                ordering='face_id ascending; SciPy ties resolved on canonical condensed matrix; library version pinned',
                input_files=cache["input_files"], input_root=str(Path(args.input).resolve()),
                preprocessing=dict(channel_order="uint8 BGR, no manual normalization before OpenCV APIs", exif="Pillow exif_transpose once",
                 resize="aspect preserved; round dimensions; INTER_AREA; no upscaling/padding", coordinates="oriented original pixels, x/y/w/h and five x/y landmarks",
                 sface="OpenCV alignCrop (112x112) -> feature (128) -> L2 normalize", similarity="dot(unit vectors); larger is closer; distance=1-cosine")))
+    if cache['config'].get('detection_sides'):
+        config_path = run / 'run_config.json'
+        detail = json.loads(config_path.read_text(encoding='utf-8'))
+        detail['preprocessing']['detection_multiscale'] = dict(
+            sides=cache['signature']['extraction']['detection_sides'],
+            version=cache['signature']['extraction']['detection_version'],
+            merge='descending score; deterministic coordinate ties; original-coordinate float IoU NMS',
+            nms_threshold=cache['config']['nms_threshold'],
+            note='detect_width/height/scale_x/scale_y are reference max_side; actual per-scale inputs in detection_inputs.json')
+        write_json(config_path, detail)
+        write_json(run / 'detection_inputs.json', {p['photo_id']:p.get('detection_inputs', []) for p in photos})
     (run / "summary.md").write_text("# Local face validation\n\n" + "\n".join(f"- {k}: {v}" for k, v in summary.items()) +
         "\n\n검출 0개는 보이는 얼굴 없음/미검출을 자동 구별하지 못합니다. unknown은 검출 후 그룹 미확인입니다.\n"
         "얼굴별 오류는 faces.csv, 사진별 오류는 photos.csv를 확인하세요. 개인 사진 정확도는 수동 정답 평가 전 알 수 없습니다.\n", encoding="utf-8")
