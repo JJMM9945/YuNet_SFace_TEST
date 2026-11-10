@@ -10,8 +10,10 @@ ljm_dataset/
 ljm2_dataset/
 gt_dataset/
 models/
-results/
-validation_data/
+/results/
+/validation_data/
+/tests/private/
+/device_results/
 step1기록 저장/
 step*_annotations*.json
 missed_faces*.csv

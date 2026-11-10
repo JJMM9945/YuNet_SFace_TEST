@@ -8,10 +8,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 from PIL import Image
-from face_lab.__main__ import parser
-from face_lab.models import MODELS, sha256
-from face_lab.pipeline import analyze, regroup
-from face_lab.review import context_hash, make_review, read_truth
+from tests.experiments.face_lab.__main__ import parser
+from tests.experiments.face_lab.models import MODELS, sha256
+from tests.experiments.face_lab.pipeline import analyze, regroup
+from tests.experiments.face_lab.review import context_hash, make_review, read_truth
 
 MODELS_DIR = Path(__file__).resolve().parents[1] / 'models'
 
@@ -47,7 +47,7 @@ class LocalWorkflowTests(unittest.TestCase):
                     regroup(regroup_args)
 
     def test_truth_rejects_wrong_extraction_and_duplicate_faces(self):
-        from face_lab.pipeline import write_csv
+        from tests.experiments.face_lab.pipeline import write_csv
         cache = dict(signature={}, input_files=[], faces=[])
         context = context_hash(cache)
         with tempfile.TemporaryDirectory() as folder:

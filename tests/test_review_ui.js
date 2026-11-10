@@ -20,13 +20,14 @@ const sandbox={document:{getElementById:id=>ids[id],createElement:tag=>new Eleme
  localStorage:{setItem:(k,v)=>storage.set(k,v),getItem:k=>storage.get(k)||null},Blob,
  URL:{createObjectURL:b=>{exported=b;return 'blob:test';},revokeObjectURL(){}},setTimeout:fn=>fn()};
 vm.createContext(sandbox);
-const template=fs.readFileSync('face_lab/review_ui.html','utf8');
+const template=fs.readFileSync('tests/experiments/face_lab/review_ui.html','utf8');
 const script=template.split('<script>')[1].split('</script>')[0];vm.runInContext(script,sandbox);
 const run=js=>vm.runInContext(js,sandbox);
 async function main(){
  assert.equal(run('[...states.values()].filter(s=>s.manual_person_id).length'),0,'automatic groups must not be treated as truth');
  run("const firstSection=panels[0].box;firstSection.children[1].value='A01';firstSection.children[2].onclick();");
  assert.equal(run("states.get('a').manual_person_id"),'A01');assert.equal(run("states.get('b').manual_person_id"),'A01');
+ assert.equal(run("states.get('a').annotation_status"),'','batch-filled IDs must clear the unlabeled status');
  run("cards.get('b').input.value='B02';cards.get('b').input.oninput();");
  assert.equal(run("states.get('b').manual_person_id"),'B02');
  ids.export.onclick();const bytes=new Uint8Array(await exported.arrayBuffer());assert.deepEqual([...bytes.slice(0,3)],[239,187,191]);

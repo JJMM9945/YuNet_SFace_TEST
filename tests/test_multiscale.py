@@ -2,8 +2,8 @@
 import unittest
 from unittest.mock import patch
 import numpy as np
-from face_lab.detection import multiscale_detect
-from face_lab.pipeline import extraction_signature
+from tests.experiments.face_lab.detection import multiscale_detect
+from tests.experiments.face_lab.pipeline import extraction_signature
 
 
 class Detector:
@@ -28,7 +28,7 @@ class MultiscaleTests(unittest.TestCase):
 
     def test_legacy_signature_unchanged_but_multiscale_separate(self):
         config = dict(score_threshold=.8, nms_threshold=.3, top_k=5000, max_side=1600, min_face_size=40, min_blur=50)
-        with patch('face_lab.pipeline.runtime', return_value={}):
+        with patch('tests.experiments.face_lab.pipeline.runtime', return_value={}):
             legacy = extraction_signature(config)
             self.assertEqual(legacy, extraction_signature(dict(config, detection_sides=None)))
             multi = extraction_signature(dict(config, detection_sides=[2400,960,1600]))

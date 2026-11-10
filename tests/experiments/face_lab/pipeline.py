@@ -182,6 +182,8 @@ def load_vectors(source, cache):
 def regroup(args):
     start = time.perf_counter()
     source, root = Path(args.source).resolve(), Path(args.input).resolve()
+    if (source / 'summary.json').exists() and json.loads((source / 'summary.json').read_text(encoding='utf-8')).get('mode') in {'correct-groups', 'experimental-regroup'}:
+        raise ValueError('Regroup the original automatic result; manual exclusions and corrections are not carried forward automatically.')
     cache = json.loads((source / "cache.json").read_text(encoding="utf-8"))
     if cache.get("schema") != 1 or cache["signature"] != extraction_signature(cache["config"]):
         raise ValueError("Cache incompatible: model/preprocessing/runtime version changed; run analyze again.")
@@ -203,8 +205,9 @@ def regroup(args):
 def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_seconds, cache, mode):
     from .reports import render
     t = time.perf_counter()
-    diagnostics = group_faces(faces, vectors, args.similarity_threshold, args.min_group_size,
-                              args.ambiguity_margin, method=args.linkage)
+    diagnostics = ({f['face_id']: f.get('diagnostic', {}) for f in faces} if mode in {'correct-groups', 'experimental-regroup'} else
+                   group_faces(faces, vectors, args.similarity_threshold, args.min_group_size,
+                               args.ambiguity_margin, method=args.linkage))
     write_json(run / 'diagnostics.json', diagnostics)
     flat = []
     for diagnostic in diagnostics.values():
@@ -221,11 +224,15 @@ def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_
         photo["review"] = ";".join(sorted({f["review"] for f in own if f["review"]}))
     write_csv(run / "faces.csv", faces, ["photo_id", "relative_path", "face_id", "x", "y", "width", "height",
               "landmarks", "detection_score", "group_id", "label", "status", "reason", "blur_variance", "review", "crop_path",
-              "manual_person_id", "label_origin", "quality_reason", "decision_state"])
+              "manual_person_id", "label_origin", "quality_reason", "decision_state", "correction_note"])
     write_csv(run / "photos.csv", photos, ["photo_id", "relative_path", "sha256", "status", "error", "detected_faces",
               "people", "unknown_faces", "review", "width", "height", "detect_width", "detect_height", "scale_x", "scale_y"])
     from .review import context_hash
-    write_csv(run / "ground_truth_template.csv", [dict(f, manual_person_id=f.get('manual_person_id',''), include="1", review_type="", annotation_status="", notes="",
+    write_csv(run / "ground_truth_template.csv", [dict(f, manual_person_id=f.get('manual_person_id',''),
+              include="0" if f['status'] == 'false_detection' else "1",
+              review_type="false_detection" if f['status'] == 'false_detection' else "",
+              annotation_status="excluded" if f['status'] == 'false_detection' else "",
+              notes=f.get('correction_note','') if f['status'] == 'false_detection' else "",
               _context_sha256=context_hash(cache)) for f in faces],
               ["face_id", "photo_id", "relative_path", "manual_person_id", "include", "annotation_status", "review_type", "notes", "_context_sha256"])
     write_csv(run / "photo_review_template.csv", [dict(p, missed_face_count="", false_detection_count="", notes="") for p in photos],
@@ -235,13 +242,15 @@ def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_
     config.pop("handler", None)
     from collections import Counter
     sizes = Counter(f['group_id'] for f in faces if f['group_id'])
-    summary = dict(mode=mode, grouping_eligible_faces=sum(not f.get('quality_reason') and f['face_id'] in vectors for f in faces),
+    summary = dict(mode=mode, grouping_eligible_faces=sum(not f.get('quality_reason') and f['face_id'] in vectors and f['status'] != 'false_detection' for f in faces),
                    singleton_groups=sum(n == 1 for n in sizes.values()),
-                   quality_excluded_faces=sum(bool(f.get('quality_reason')) for f in faces),
+                   quality_excluded_faces=sum(bool(f.get('quality_reason')) and f['status'] != 'false_detection' for f in faces),
                    held_faces=sum(f['status'] == 'unknown' and not f.get('quality_reason') for f in faces),
+                   false_detections=sum(f['status'] == 'false_detection' for f in faces),
+                   manually_confirmed_faces=sum(f.get('label_origin') == 'user_confirmed' for f in faces),
                    unknown_reasons=dict(Counter(f['reason'] for f in faces if f['status'] == 'unknown')),
                    same_photo_review_groups=sorted({f['group_id'] for f in faces if 'same_photo_same_group' in f['review']}),
-                   automatic_assignment_rate=sum(bool(f['group_id']) for f in faces)/len(faces) if faces else None,
+                   automatic_assignment_rate=(sum(bool(f['group_id']) for f in faces)/len(faces) if faces else None) if mode != 'correct-groups' else None,
                    actual_grouping_config={k:getattr(args,k,None) for k in ('linkage','similarity_threshold','min_group_size','ambiguity_margin','reassign_unknown')}, total_photos=len(photos), successful_photos=sum(p["status"] == "success" for p in photos),
                    failed_photos=sum(p["status"] == "failed" for p in photos),
                    zero_face_photos=sum(p["status"] == "success" and p["detected_faces"] == 0 for p in photos),
@@ -249,7 +258,9 @@ def finish(run, photos, faces, vectors, args, start, detection_seconds, feature_
                    unknown_faces=sum(f["status"] == "unknown" for f in faces),
                    review_faces=sum(bool(f["review"]) for f in faces), detection_seconds=detection_seconds,
                    feature_seconds=feature_seconds, grouping_seconds=group_seconds, total_seconds=time.perf_counter()-start,
-                   note="Counts are not accuracy. No ground truth evaluation performed.")
+                   note=("Human corrections applied; unmentioned predictions remain unreviewed. Not automatic accuracy." if mode == 'correct-groups' else
+                         "Exploratory experiment uses user-confirmed false-detection exclusions; remaining assignments are automatic." if mode == 'experimental-regroup' else
+                         "Counts are not accuracy. No ground truth evaluation performed."))
     write_json(run / "summary.json", summary)
     write_json(run / "run_config.json", dict(options=config, extraction_signature=cache["signature"], runtime=runtime(),
                grouping_version=GROUPING_VERSION,

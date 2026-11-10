@@ -10,11 +10,11 @@ from unittest.mock import patch
 
 import numpy as np
 from PIL import Image
-from face_lab.grouping import group_faces
-from face_lab.preprocess import decode_oriented, detection_input, to_original
-from face_lab.models import verify, MODELS
-from face_lab.evaluation import evaluate
-from face_lab.pipeline import write_csv
+from tests.experiments.face_lab.grouping import group_faces
+from tests.experiments.face_lab.preprocess import decode_oriented, detection_input, to_original
+from tests.experiments.face_lab.models import verify, MODELS
+from tests.experiments.face_lab.evaluation import evaluate
+from tests.experiments.face_lab.pipeline import write_csv
 
 
 class CoreTests(unittest.TestCase):
@@ -105,7 +105,7 @@ class CoreTests(unittest.TestCase):
         self.assertFalse(record['ambiguity_rule_matched'])
 
     def test_html_escaping_and_font_fallback(self):
-        from face_lab.reports import render
+        from tests.experiments.face_lab.reports import render
         from PIL import ImageFont
         with tempfile.TemporaryDirectory() as d:
             run=Path(d)
@@ -115,7 +115,7 @@ class CoreTests(unittest.TestCase):
             photo=dict(photo_id="p1",relative_path='<script>alert("x")</script>&.jpg',status="success",error="",detected_faces=1,people="미확인")
             face=dict(photo_id="p1",face_id="p1_f001",relative_path=photo["relative_path"],group_id="",label="미확인",status="unknown",
                       crop_path="",reason="feature_failed",review="",x=10,y=10,width=20,height=20)
-            with patch("face_lab.reports.font",return_value=(ImageFont.load_default(size=16),False)):
+            with patch("tests.experiments.face_lab.reports.font",return_value=(ImageFont.load_default(size=16),False)):
                 render(run,[photo],[face])
             html=(run/"index.html").read_text(encoding="utf-8")
             self.assertNotIn('<script>',html)

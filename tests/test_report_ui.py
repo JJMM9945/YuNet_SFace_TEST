@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from PIL import Image
-from face_lab.report_ui import render_html
+from tests.experiments.face_lab.report_ui import render_html
 
 
 class ReportUiTests(unittest.TestCase):

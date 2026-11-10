@@ -1,95 +1,45 @@
-# 역할: CLI 명령과 현재 기본 설정 검증 및 분석·검토 명령 분기
+"""Selected reference CLI. Historical experiments live under tests.experiments."""
 import argparse
-import sys
+import json
+from pathlib import Path
+import numpy as np
 
-
-def parser():
-    p = argparse.ArgumentParser(description="Offline YuNet + SFace personal photo validation (CPU).")
-    sub = p.add_subparsers(dest="command", required=True)
-    prep = sub.add_parser("prepare-models", help="Explicit network download and SHA-256 validation only.")
-    prep.add_argument("--models", default="models")
-    check = sub.add_parser("check", help="Dependency, model loading and blank-image forward-pass check.")
-    check.add_argument("--models", default="models")
-    for name in ("analyze", "regroup"):
-        s = sub.add_parser(name, help="Local analysis" if name == "analyze" else "Regroup existing features after strict cache validation")
-        s.add_argument("--input", default="ljm_dataset")
-        s.add_argument("--output", default="results")
-        s.add_argument("--models", default="models")
-        s.add_argument("--similarity-threshold", type=float, default=0.40, help="Cosine similarity >= this; experimental starting value")
-        s.add_argument("--min-group-size", type=int, default=1)
-        s.add_argument("--ambiguity-margin", type=float, default=0.01)
-        s.add_argument('--linkage', choices=['complete','average'], default='average')
-        s.set_defaults(reassign_unknown=False)
-        if name == "analyze":
-            s.add_argument("--score-threshold", type=float, default=0.75)
-            s.add_argument("--nms-threshold", type=float, default=0.3)
-            s.add_argument("--top-k", type=int, default=5000)
-            s.add_argument("--max-side", type=int, default=1600)
-            s.add_argument('--detection-sides', type=int, nargs='+', default=[960,1600,2400], help='Selected default: 960 1600 2400; use --detection-sides 1600 for a single scale; global original-coordinate NMS')
-            s.add_argument("--min-face-size", type=float, default=40, help="Oriented original pixels")
-            s.add_argument("--min-blur", type=float, default=50, help="Laplacian variance on aligned 112x112 crop")
-        else:
-            s.add_argument("--source", required=True, help="Previous run directory containing cache.json and features.npz")
-    evaluation = sub.add_parser("evaluate", help="Pairwise precision/recall/F1 only with manual ground truth")
-    evaluation.add_argument("--run", required=True)
-    evaluation.add_argument("--ground-truth", required=True)
-    evaluation.add_argument("--output", help="Evaluation JSON directory")
-    review = sub.add_parser('review',help='Create offline ground-truth annotation HTML next to a run')
-    review.add_argument('--run',required=True)
-    return p
+from .engine import FaceEngine
 
 
 def main():
-    p = parser()
-    a = p.parse_args()
-    for name in ("score_threshold", "nms_threshold"):
-        if hasattr(a, name) and not 0 < getattr(a, name) <= 1:
-            p.error(f"{name} must be in (0,1]")
-    if hasattr(a, "similarity_threshold"):
-        if not -1 <= a.similarity_threshold <= 1 or not 0 <= a.ambiguity_margin <= 2:
-            p.error("similarity threshold must be [-1,1], margin [0,2]")
-        if a.min_group_size < 1:
-            p.error("min-group-size must be >= 1")
-    for name in ("max_side", "top_k"):
-        if hasattr(a, name) and getattr(a, name) < (32 if name == "max_side" else 1):
-            p.error(f"{name} out of range")
-    if getattr(a, 'detection_sides', None) and any(side < 32 for side in a.detection_sides):
-        p.error('detection-sides must each be >=32')
-    for name in ("min_face_size", "min_blur"):
-        if hasattr(a, name) and not getattr(a, name) >= 0:
-            p.error(f"{name} must be nonnegative")
-    try:
-        import cv2
-        import numpy as np
-        cv2.setNumThreads(1)
-        cv2.setRNGSeed(0)
-        cv2.ocl.setUseOpenCL(False)
-        from .models import load, prepare
-        if a.command == "prepare-models":
-            prepare(a.models)
-            print("Models verified and ready.")
-        elif a.command == "check":
-            d, r = load(a.models)
-            d.setInputSize((320,320))
-            d.detect(np.zeros((320,320,3), np.uint8))
-            v = r.feature(np.zeros((112,112,3), np.uint8))
-            if v.size != 128 or not np.isfinite(v).all():
-                raise ValueError("SFace forward pass returned invalid features")
-            print(f"OK OpenCV {cv2.__version__}; CPU model load and blank-image forward passes (not accuracy test)")
-        elif a.command == "evaluate":
-            from .evaluation import evaluate
-            evaluate(a)
-        elif a.command == 'review':
-            from .review import make_review
-            make_review(a)
-        else:
-            from .pipeline import analyze, regroup
-            (analyze if a.command == "analyze" else regroup)(a)
-        return 0
-    except Exception as e:
-        print(f"ERROR: {type(e).__name__}: {e}\nUse Python 3.11/3.12 and install requirements.txt in a clean venv; prepare-models is the only network command.", file=sys.stderr)
-        return 2
+    parser = argparse.ArgumentParser(description='YuNet multiscale .75 + SFace device-port reference')
+    sub = parser.add_subparsers(dest='command', required=True)
+    for command in ('prepare-models', 'check', 'extract'):
+        item = sub.add_parser(command)
+        item.add_argument('--models', default='models')
+        if command == 'extract':
+            item.add_argument('--input', required=True, help='One image file')
+            item.add_argument('--photo-id', required=True, help='Stable app photo ID')
+            item.add_argument('--output', required=True, help='New result directory')
+    args = parser.parse_args()
+    if args.command == 'prepare-models':
+        from .models import prepare
+        prepare(args.models)
+        return
+    engine = FaceEngine(args.models)
+    if args.command == 'check':
+        engine.detector.setInputSize((320, 320))
+        engine.detector.detect(np.zeros((320, 320, 3), np.uint8))
+        feature = engine.recognizer.feature(np.zeros((112, 112, 3), np.uint8))
+        if feature.size != 128 or not np.isfinite(feature).all():
+            raise ValueError('Invalid SFace forward pass')
+        print('OK: YuNet + SFace CPU forward passes')
+        return
+    output = Path(args.output)
+    output.mkdir(parents=True, exist_ok=False)
+    faces, vectors = engine.extract_photo(Path(args.input).read_bytes(), args.photo_id)
+    (output / 'faces.json').write_text(json.dumps(faces, ensure_ascii=False, indent=2), encoding='utf-8')
+    ids = sorted(vectors)
+    np.savez_compressed(output / 'features.npz', face_ids=np.array(ids, dtype=str),
+                        vectors=np.stack([vectors[k] for k in ids]) if ids else np.empty((0, 128), np.float32))
+    print(f'{len(faces)} faces; {len(vectors)} vectors -> {output}')
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+if __name__ == '__main__':
+    main()

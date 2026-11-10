@@ -16,7 +16,7 @@ def font(size):
 
 
 def display_label(f, korean):
-    return f["label"] if korean else (f["group_id"] or "unknown")
+    return f["label"] if korean else (f["group_id"] or ("false detection" if f["status"] == "false_detection" else "unknown"))
 
 
 def render(run, photos, faces, options=None):
@@ -25,7 +25,7 @@ def render(run, photos, faces, options=None):
     by_photo, groups = defaultdict(list), defaultdict(list)
     for f in faces:
         by_photo[f["photo_id"]].append(f)
-        groups[f["group_id"] or "unknown"].append(f)
+        groups[f["group_id"] or ("false_detection" if f["status"] == "false_detection" else "unknown")].append(f)
     for p in photos:
         src = run / "photos" / (p["photo_id"] + ".jpg")
         if not src.exists():
@@ -38,7 +38,7 @@ def render(run, photos, faces, options=None):
             x, y, w, h = [f[k] for k in ("x", "y", "width", "height")]
             if not all(math.isfinite(v) for v in (x,y,w,h)) or min(w,h) <= 0:
                 continue
-            color = "orange" if f["status"] == "unknown" else "lime"
+            color = "cyan" if f["status"] == "false_detection" else "orange" if f["status"] == "unknown" else "lime"
             draw.rectangle((x, y, x+w, y+h), outline=color, width=max(2, image.width//500))
             points = f.get('landmarks', [])
             if isinstance(points, str):

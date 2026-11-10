@@ -1,6 +1,6 @@
 # 역할: 여러 크기 .75·average .40 기본값과 단일 크기 명시 동작 검사
 import unittest
-from face_lab.__main__ import parser
+from tests.experiments.face_lab.__main__ import parser
 
 
 class SelectedDefaultsTests(unittest.TestCase):
