@@ -1,5 +1,5 @@
 """Selected on-device port reference: no reports, network or identity experiments."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import cv2
 import numpy as np
 
@@ -12,7 +12,7 @@ from .grouping import group_faces
 @dataclass(frozen=True)
 class Settings:
     detection_sides: tuple = (960, 1600, 2400)
-    score_threshold: float = .75
+    score_threshold: float = field(default=.75, init=False)
     nms_threshold: float = .30
     top_k: int = 5000
     min_face_size: float = 40

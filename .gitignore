@@ -42,3 +42,7 @@ photo_review*.csv
 faces.csv
 photos.csv
 cache.json
+
+# Share only reviewed report charts; personal photo outputs remain ignored.
+!tests/results/images/
+!tests/results/images/*.png

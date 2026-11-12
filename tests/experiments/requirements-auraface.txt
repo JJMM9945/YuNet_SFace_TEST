@@ -1,4 +1,0 @@
-# Optional AuraFace comparison only; core YuNet/SFace requirements remain unchanged.
--r requirements.txt
-onnx==1.19.1
-onnxruntime==1.23.2

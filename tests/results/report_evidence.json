@@ -1,0 +1,684 @@
+{
+  "detection": {
+    "single_080": {
+      "source": "run_20261027T082946_858799Z_53e57f/summary.json",
+      "sha256": "e9ef360bfcabf5902c40bc3b3f9c7a7dd4bf855ff732403c23b16fb82e3afdf4",
+      "total_photos": 54,
+      "detected_faces": 145,
+      "groups": 59,
+      "unknown_faces": 18,
+      "held_faces": null,
+      "total_seconds": 9.554002374999982
+    },
+    "multi_075": {
+      "source": "여러크기 + 0.75/run_20261103T064516_657319Z_ab5259/summary.json",
+      "sha256": "555a99ab6dbbe7f63f7d4455e42e07a4add70dad39e95c8958095f496ed721e2",
+      "total_photos": 54,
+      "detected_faces": 157,
+      "groups": 49,
+      "unknown_faces": 7,
+      "held_faces": 5,
+      "total_seconds": 21.183860375000222
+    },
+    "multi_080": {
+      "source": "여러크기 + 0.8/run_20261103T065110_894547Z_b7d781/summary.json",
+      "sha256": "6605711438523924c97c876b4d6a26d0b45137ae2577387994942a901d3489f0",
+      "total_photos": 54,
+      "detected_faces": 156,
+      "groups": 49,
+      "unknown_faces": 7,
+      "held_faces": 5,
+      "total_seconds": 20.959595750005974
+    }
+  },
+  "grouping": {
+    "baseline_complete": {
+      "source": "grouping_comparisons/run_20261029T051249_949113Z_16ad0e/baseline_complete/summary.json",
+      "sha256": "d81de7d1d1223cacae0c8d96cefd31414c29918db180725a21913be1182430a6",
+      "total_photos": 54,
+      "detected_faces": 145,
+      "groups": 59,
+      "unknown_faces": 18,
+      "held_faces": 16,
+      "total_seconds": 2.026438541997777
+    },
+    "average_same_threshold": {
+      "source": "grouping_comparisons/run_20261029T051249_949113Z_16ad0e/average_same_threshold/summary.json",
+      "sha256": "7aa72c1adafc1259bbc5fc2a3985356f2ad6871a7070cbfe602542fa46b096b8",
+      "total_photos": 54,
+      "detected_faces": 145,
+      "groups": 48,
+      "unknown_faces": 5,
+      "held_faces": 3,
+      "total_seconds": 1.9574473749999015
+    },
+    "complete_threshold_0.35": {
+      "source": "grouping_comparisons/run_20261029T051249_949113Z_16ad0e/complete_threshold_0.35/summary.json",
+      "sha256": "12348dfdc807a495a4ee5221d968a5f064f628dbc4b53e43c08a8ea8310e863b",
+      "total_photos": 54,
+      "detected_faces": 145,
+      "groups": 51,
+      "unknown_faces": 23,
+      "held_faces": 21,
+      "total_seconds": 1.9757535419994383
+    },
+    "complete_threshold_0.45": {
+      "source": "grouping_comparisons/run_20261029T051249_949113Z_16ad0e/complete_threshold_0.45/summary.json",
+      "sha256": "443fd1ab11bcabf5d70294b789cd38b23476a1a4c3c2e7eaefa36a0599a4ea58",
+      "total_photos": 54,
+      "detected_faces": 145,
+      "groups": 66,
+      "unknown_faces": 20,
+      "held_faces": 18,
+      "total_seconds": 2.014433915999689
+    },
+    "complete_reassignment": {
+      "source": "grouping_comparisons/run_20261029T051249_949113Z_16ad0e/complete_reassignment/summary.json",
+      "sha256": "7ce2ed84ae68619a0cb6782b75bea8f91bb1585b3e9e710c1ef59834526bcd7d",
+      "total_photos": 54,
+      "detected_faces": 145,
+      "groups": 59,
+      "unknown_faces": 10,
+      "held_faces": 8,
+      "total_seconds": 2.0179088749973744
+    },
+    "average_0.36": {
+      "source": "최초 그룹화 유사도 비교/유사도 0.36/summary.json",
+      "sha256": "e5667c72ba01511a692faaf835719231260884588e2e0d09a0bc23c3978c596e",
+      "total_photos": 54,
+      "detected_faces": 156,
+      "groups": 39,
+      "unknown_faces": 3,
+      "held_faces": 3,
+      "total_seconds": 3.8272254999974393,
+      "false_detections": 3
+    },
+    "average_0.38": {
+      "source": "최초 그룹화 유사도 비교/유사도 0.38/summary.json",
+      "sha256": "e118ecbf6c46d704a3bbd9adb4aee74991d6bf9690cc48b27ed7381d6b3300c2",
+      "total_photos": 54,
+      "detected_faces": 156,
+      "groups": 46,
+      "unknown_faces": 5,
+      "held_faces": 5,
+      "total_seconds": 3.829133040999295,
+      "false_detections": 3
+    },
+    "average_0.40": {
+      "source": "최초 그룹화 유사도 비교/유사도 0.40/summary.json",
+      "sha256": "f2beee545f98a54d974978bbcfdf6238dfebc2a93715aeb65f804c524095575d",
+      "total_photos": 54,
+      "detected_faces": 156,
+      "groups": 48,
+      "unknown_faces": 5,
+      "held_faces": 5,
+      "total_seconds": 3.8838912909995997,
+      "false_detections": 3
+    }
+  },
+  "representatives": {
+    "rep3": {
+      "source": "오검출_대표얼굴_비교/run_20261103T072525_958013Z_06d629/comparison.json",
+      "sha256": "9bd612d2ceadc90e3a0487ad51839044ec2f0b216807530c71d4ebd29737fe23",
+      "settings": {
+        "representatives": 3,
+        "diversity_weight": 0.3,
+        "min_support": 2,
+        "support_threshold": 0.4,
+        "score_threshold": 0.45,
+        "margin": 0.03
+      },
+      "results": {
+        "baseline": {
+          "groups": 49,
+          "unknown_faces": 7,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "false_excluded": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "representative_merge": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "representative_reassignment": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        }
+      }
+    },
+    "rep5": {
+      "source": "대표_3장_5장_비교/run_20261103T073856_940358Z_a0163f/comparison.json",
+      "sha256": "550eaed3d3104637ff1e44caea431cb0d5af2f938217a352bd1eab1dbebd3b3c",
+      "settings": {
+        "representatives": 5,
+        "diversity_weight": 0.3,
+        "min_support": 2,
+        "support_threshold": 0.4,
+        "score_threshold": 0.45,
+        "margin": 0.03
+      },
+      "results": {
+        "baseline": {
+          "groups": 49,
+          "unknown_faces": 7,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "false_excluded": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "representative_merge": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "representative_reassignment": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        }
+      }
+    },
+    "mean035": {
+      "source": "그룹화 평균 비교/그룹화 평균 0.35/run_20261103T090243_075835Z_0156ec/comparison.json",
+      "sha256": "68848391a904e5885cebfc637056d59f03919d0c5db5d8a17b9dab9e03aa8d52",
+      "settings": {
+        "representatives": 3,
+        "diversity_weight": 0.3,
+        "min_support": 2,
+        "support_threshold": 0.4,
+        "score_threshold": 0.35,
+        "margin": 0.03
+      },
+      "results": {
+        "baseline": {
+          "groups": 49,
+          "unknown_faces": 7,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "false_excluded": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "representative_merge": {
+          "groups": 47,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "representative_reassignment": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        }
+      }
+    },
+    "mean040": {
+      "source": "그룹화 평균 비교/그룹화 평균 0.40/run_20261103T090229_798638Z_0ca58e/comparison.json",
+      "sha256": "7fe1ac404a1b573115d5440b58fbba3d04bacbfc415e123ebaca91a0d32e894a",
+      "settings": {
+        "representatives": 3,
+        "diversity_weight": 0.3,
+        "min_support": 2,
+        "support_threshold": 0.4,
+        "score_threshold": 0.4,
+        "margin": 0.03
+      },
+      "results": {
+        "baseline": {
+          "groups": 49,
+          "unknown_faces": 7,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "false_excluded": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "representative_merge": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "representative_reassignment": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        }
+      }
+    },
+    "mean045": {
+      "source": "그룹화 평균 비교/그룹화 평균 0.45/run_20261103T090216_540077Z_844f66/comparison.json",
+      "sha256": "c9f110f1b3b324af427bdd39b56383d179621296931c7a688eec85492e23dbdc",
+      "settings": {
+        "representatives": 3,
+        "diversity_weight": 0.3,
+        "min_support": 2,
+        "support_threshold": 0.4,
+        "score_threshold": 0.45,
+        "margin": 0.03
+      },
+      "results": {
+        "baseline": {
+          "groups": 49,
+          "unknown_faces": 7,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "false_excluded": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "representative_merge": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        },
+        "representative_reassignment": {
+          "groups": 48,
+          "unknown_faces": 5,
+          "f1": 0.7169069462647444,
+          "evaluated_faces": 67
+        }
+      }
+    }
+  },
+  "quality": {
+    "source": "얼굴크기별_오류진단/전체정답반영/진단.json",
+    "sha256": "0dcb24ec6a1d7487d93085b485e243d4af252503daa8deda8c13dbf42adb9910",
+    "evaluated_faces": 153,
+    "band_results": [
+      {
+        "size_band": "0–60px",
+        "detected_faces": 6,
+        "labeled_faces": 6,
+        "unknown_faces": 0,
+        "identity_faces": {
+          "eligible_faces": 6,
+          "faces_with_same_person_mate": 5,
+          "success_rate": 0.8333333333333334
+        },
+        "same_person": {
+          "total_pairs": 84,
+          "error_pairs": 27,
+          "error_rate": 0.32142857142857145
+        },
+        "different_people": {
+          "total_pairs": 813,
+          "error_pairs": 0,
+          "error_rate": 0.0
+        }
+      },
+      {
+        "size_band": "60–100px",
+        "detected_faces": 11,
+        "labeled_faces": 11,
+        "unknown_faces": 0,
+        "identity_faces": {
+          "eligible_faces": 8,
+          "faces_with_same_person_mate": 7,
+          "success_rate": 0.875
+        },
+        "same_person": {
+          "total_pairs": 99,
+          "error_pairs": 77,
+          "error_rate": 0.7777777777777778
+        },
+        "different_people": {
+          "total_pairs": 1452,
+          "error_pairs": 0,
+          "error_rate": 0.0
+        }
+      },
+      {
+        "size_band": "100–200px",
+        "detected_faces": 47,
+        "labeled_faces": 47,
+        "unknown_faces": 1,
+        "identity_faces": {
+          "eligible_faces": 46,
+          "faces_with_same_person_mate": 39,
+          "success_rate": 0.8478260869565217
+        },
+        "same_person": {
+          "total_pairs": 469,
+          "error_pairs": 133,
+          "error_rate": 0.2835820895522388
+        },
+        "different_people": {
+          "total_pairs": 4795,
+          "error_pairs": 2,
+          "error_rate": 0.0004171011470281543
+        }
+      },
+      {
+        "size_band": "200px 이상",
+        "detected_faces": 89,
+        "labeled_faces": 89,
+        "unknown_faces": 4,
+        "identity_faces": {
+          "eligible_faces": 80,
+          "faces_with_same_person_mate": 69,
+          "success_rate": 0.8625
+        },
+        "same_person": {
+          "total_pairs": 523,
+          "error_pairs": 214,
+          "error_rate": 0.4091778202676864
+        },
+        "different_people": {
+          "total_pairs": 3393,
+          "error_pairs": 0,
+          "error_rate": 0.0
+        }
+      }
+    ]
+  },
+  "merge": {
+    "source": "병합_분리_규칙_비교/진단.json",
+    "sha256": "2fcd51509a50a6941b6ccc831f7e2d0529f0a650eb0f893770925ae8a52834b2",
+    "mixed_groups": 2,
+    "evaluation": {
+      "baseline": {
+        "evaluated_faces": 44,
+        "precision": 1.0,
+        "recall": 0.4016393442622951,
+        "f1": 0.5730994152046783
+      },
+      "after_merge": {
+        "evaluated_faces": 44,
+        "precision": 1.0,
+        "recall": 0.6967213114754098,
+        "f1": 0.821256038647343
+      }
+    }
+  },
+  "identity": {
+    "source": "인물ID_연결_테스트2/run_20261109T101217_280213Z_0d1db3/identity_summary.json",
+    "sha256": "db0c4d633ca34af45c10e586bdf4170a26a60451bc7fc1ea20a270b4041d766b",
+    "input_photos": 27,
+    "detected_faces": 80,
+    "duplicate_content_photos": 6,
+    "new_content_photos": 21,
+    "confirmed_transferred_faces": 25,
+    "predicted_faces": 33,
+    "held_faces": 22,
+    "precision": null,
+    "recall": null,
+    "f1": null
+  },
+  "automatic_anchors": {
+    "source": "자동대표_그룹화_비교/run_20261110T063841_330629Z_a33a43/comparison.json",
+    "sha256": "e13ea052709b6ddcde90af38f0249e4ddbd96ed01518b42071063d1ee29a0387",
+    "variants": [
+      {
+        "lane": "fully_automatic",
+        "variant": "baseline",
+        "groups": 49,
+        "changed_count": 0,
+        "accepted_queries": 0
+      },
+      {
+        "lane": "fully_automatic",
+        "variant": "unknown_reassignment",
+        "groups": 49,
+        "changed_count": 0,
+        "accepted_queries": 0
+      },
+      {
+        "lane": "fully_automatic",
+        "variant": "small_group_linking",
+        "groups": 49,
+        "changed_count": 0,
+        "accepted_queries": 0
+      },
+      {
+        "lane": "human_false_exclusion_control",
+        "variant": "baseline",
+        "groups": 48,
+        "changed_count": 0,
+        "accepted_queries": 0
+      },
+      {
+        "lane": "human_false_exclusion_control",
+        "variant": "unknown_reassignment",
+        "groups": 48,
+        "changed_count": 0,
+        "accepted_queries": 0
+      },
+      {
+        "lane": "human_false_exclusion_control",
+        "variant": "small_group_linking",
+        "groups": 48,
+        "changed_count": 0,
+        "accepted_queries": 0
+      },
+      {
+        "lane": "ljm2_fully_automatic",
+        "variant": "baseline",
+        "groups": 23,
+        "changed_count": 0,
+        "accepted_queries": 0
+      },
+      {
+        "lane": "ljm2_fully_automatic",
+        "variant": "unknown_reassignment",
+        "groups": 23,
+        "changed_count": 0,
+        "accepted_queries": 0
+      },
+      {
+        "lane": "ljm2_fully_automatic",
+        "variant": "small_group_linking",
+        "groups": 23,
+        "changed_count": 0,
+        "accepted_queries": 0
+      }
+    ]
+  },
+  "models": {
+    "sface": {
+      "source": "AuraFace_비교/run_20261110T084910_553370Z_557b88/sface_evaluation_selected/summary.json",
+      "sha256": "b8012cdf3f051f322194f47b25e951b71f2341bb4e742955fad5a4620fe951a3",
+      "threshold": 0.44,
+      "groups": 27,
+      "metrics": {
+        "evaluated_faces": 45,
+        "precision": 0.9841269841269841,
+        "recall": 0.5636363636363636,
+        "f1": 0.7167630057803468
+      }
+    },
+    "auraface": {
+      "source": "AuraFace_비교/run_20261110T084910_553370Z_557b88/auraface_evaluation_selected/summary.json",
+      "sha256": "991ed5f1864a599996166484cd5ecbbed8994896590191dd0f1f49f5f931cdcf",
+      "threshold": 0.52,
+      "groups": 36,
+      "metrics": {
+        "evaluated_faces": 45,
+        "precision": 1.0,
+        "recall": 0.12727272727272726,
+        "f1": 0.22580645161290322
+      }
+    }
+  },
+  "model_timing": {
+    "source": "AuraFace_비교/run_20261110T084910_553370Z_557b88/experiment.json",
+    "sha256": "4599edb14b51c62f86d6877693e207f3258a090b11646f730aeec7ae45a0a77b",
+    "feature_seconds": {
+      "sface": 1.9210802019806579,
+      "auraface": 35.417797623958904
+    }
+  },
+  "albums": {
+    "ljm075": {
+      "source": "사진인원수별_그룹비교/run_20261112T051739_421148Z/summary.json",
+      "sha256": "55013780d27c84302f203f9a255373e4dda230f6b06cdf1ef685b074004c2d45",
+      "total_photos": 54,
+      "cases": {
+        "solo": {
+          "photos": 17,
+          "faces": 17,
+          "groups": 8,
+          "singleton_groups": 5,
+          "held_photos": 0,
+          "quality_check_photos": 0
+        },
+        "pair": {
+          "photos": 11,
+          "faces": 22,
+          "groups": 7,
+          "singleton_groups": 5,
+          "held_photos": 1,
+          "quality_check_photos": 1
+        },
+        "crowd": {
+          "photos": 25,
+          "faces": 118,
+          "groups": 1,
+          "singleton_groups": 0,
+          "held_photos": 0,
+          "quality_check_photos": 0
+        },
+        "zero": {
+          "photos": 1,
+          "faces": 0,
+          "groups": 0,
+          "singleton_groups": 0,
+          "held_photos": 0,
+          "quality_check_photos": 0
+        },
+        "all": {
+          "photos": 54,
+          "faces": 157,
+          "groups": 16,
+          "singleton_groups": 10,
+          "held_photos": 1,
+          "quality_check_photos": 1
+        }
+      },
+      "zero_face_photos": 1
+    },
+    "ljm2_075": {
+      "source": "범용앨범_075_검증/run_20261112T054235_905538Z_07dd8a/summary.json",
+      "sha256": "1616e28aaa98fe47321ab26ba18163ec45a365cc943e59055f1af18554610d9c",
+      "total_photos": 27,
+      "cases": {
+        "solo": {
+          "photos": 7,
+          "faces": 7,
+          "groups": 3,
+          "singleton_groups": 2,
+          "held_photos": 0,
+          "quality_check_photos": 0
+        },
+        "pair": {
+          "photos": 3,
+          "faces": 6,
+          "groups": 2,
+          "singleton_groups": 2,
+          "held_photos": 1,
+          "quality_check_photos": 0
+        },
+        "crowd": {
+          "photos": 17,
+          "faces": 71,
+          "groups": 1,
+          "singleton_groups": 0,
+          "held_photos": 0,
+          "quality_check_photos": 0
+        },
+        "zero": {
+          "photos": 0,
+          "faces": 0,
+          "groups": 0,
+          "singleton_groups": 0,
+          "held_photos": 0,
+          "quality_check_photos": 0
+        },
+        "all": {
+          "photos": 27,
+          "faces": 84,
+          "groups": 6,
+          "singleton_groups": 4,
+          "held_photos": 1,
+          "quality_check_photos": 0
+        }
+      },
+      "zero_face_photos": 0
+    },
+    "ljm2_080": {
+      "source": "ljm2_사진구성별_앨범_080/run_20261112T053104_672785Z/summary.json",
+      "sha256": "7e7fb11f055ff7f175903fb034cf6813a1ba6e8e9bf3506f7bbc8a6c56e55e5c",
+      "total_photos": 27,
+      "cases": {
+        "solo": {
+          "photos": 7,
+          "faces": 7,
+          "groups": 3,
+          "singleton_groups": 2,
+          "held_photos": 0,
+          "quality_check_photos": 0
+        },
+        "pair": {
+          "photos": 5,
+          "faces": 10,
+          "groups": 3,
+          "singleton_groups": 2,
+          "held_photos": 1,
+          "quality_check_photos": 0
+        },
+        "crowd": {
+          "photos": 15,
+          "faces": 63,
+          "groups": 1,
+          "singleton_groups": 0,
+          "held_photos": 0,
+          "quality_check_photos": 0
+        },
+        "zero": {
+          "photos": 0,
+          "faces": 0,
+          "groups": 0,
+          "singleton_groups": 0,
+          "held_photos": 0,
+          "quality_check_photos": 0
+        },
+        "all": {
+          "photos": 27,
+          "faces": 80,
+          "groups": 7,
+          "singleton_groups": 4,
+          "held_photos": 1,
+          "quality_check_photos": 0
+        }
+      },
+      "zero_face_photos": 0
+    }
+  }
+}

@@ -10,11 +10,9 @@ from unittest.mock import patch
 
 import numpy as np
 from PIL import Image
-from tests.experiments.face_lab.grouping import group_faces
-from tests.experiments.face_lab.preprocess import decode_oriented, detection_input, to_original
-from tests.experiments.face_lab.models import verify, MODELS
-from tests.experiments.face_lab.evaluation import evaluate
-from tests.experiments.face_lab.pipeline import write_csv
+from face_lab.grouping import group_faces
+from face_lab.preprocess import decode_oriented, detection_input, to_original
+from face_lab.models import verify, MODELS
 
 
 class CoreTests(unittest.TestCase):
@@ -104,37 +102,6 @@ class CoreTests(unittest.TestCase):
         self.assertGreater(record['competitors'][0]['max_similarity'],record['competing_min_similarity'])
         self.assertFalse(record['ambiguity_rule_matched'])
 
-    def test_html_escaping_and_font_fallback(self):
-        from tests.experiments.face_lab.reports import render
-        from PIL import ImageFont
-        with tempfile.TemporaryDirectory() as d:
-            run=Path(d)
-            for folder in ("photos","annotated","montages","crops"):
-                (run/folder).mkdir()
-            Image.new("RGB",(100,100),"white").save(run/"photos"/"p1.jpg")
-            photo=dict(photo_id="p1",relative_path='<script>alert("x")</script>&.jpg',status="success",error="",detected_faces=1,people="미확인")
-            face=dict(photo_id="p1",face_id="p1_f001",relative_path=photo["relative_path"],group_id="",label="미확인",status="unknown",
-                      crop_path="",reason="feature_failed",review="",x=10,y=10,width=20,height=20)
-            with patch("tests.experiments.face_lab.reports.font",return_value=(ImageFont.load_default(size=16),False)):
-                render(run,[photo],[face])
-            html=(run/"index.html").read_text(encoding="utf-8")
-            self.assertNotIn('<script>',html)
-            self.assertIn('&lt;script&gt;',html)
-            self.assertTrue((run/"montages"/"unknown_001.jpg").exists())
-
-    def test_pair_evaluation_with_unknowns(self):
-        with tempfile.TemporaryDirectory() as d:
-            run = Path(d)
-            write_csv(run/"faces.csv", [dict(face_id="a", group_id="x"), dict(face_id="b",group_id="x"),
-                                       dict(face_id="c",group_id=""), dict(face_id="d",group_id="")], ["face_id","group_id"])
-            write_csv(run/"truth.csv", [dict(face_id=f,manual_person_id=t,include="1") for f,t in zip("abcd",["A","B","A","A"])],
-                      ["face_id","manual_person_id","include"])
-            evaluate(Namespace(run=d,ground_truth=str(run/"truth.csv"),output=str(run/"evaluation")))
-            report = json.loads(next((run/"evaluation").glob("*.json")).read_text())
-            self.assertEqual(report["false_positive_pairs"], 1)
-            self.assertEqual(report["false_negative_pairs"], 3)
-            self.assertEqual(report["evaluated_unknown_faces"], 2)
-            self.assertEqual(report["f1"], 0)
 
 
 if __name__ == "__main__":
