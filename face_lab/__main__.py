@@ -1,6 +1,7 @@
 """Selected .75 reference CLI for device checks and arbitrary photo folders."""
 import argparse
 import json
+from dataclasses import asdict
 from pathlib import Path
 import numpy as np
 
@@ -8,7 +9,7 @@ from .engine import FaceEngine
 
 
 def main():
-    parser = argparse.ArgumentParser(description='YuNet multiscale .75 + SFace device-port reference')
+    parser = argparse.ArgumentParser(description='YuNet conditional1280 .75 + SFace device-port reference')
     sub = parser.add_subparsers(dest='command', required=True)
     for command in ('prepare-models', 'check', 'extract', 'albums'):
         item = sub.add_parser(command)
@@ -44,6 +45,7 @@ def main():
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=False)
     faces, vectors = engine.extract_photo(Path(args.input).read_bytes(), args.photo_id)
+    (output / 'extraction_settings.json').write_text(json.dumps(dict(settings=asdict(engine.settings),detection=engine.last_detection),ensure_ascii=False,indent=2),encoding='utf-8')
     (output / 'faces.json').write_text(json.dumps(faces, ensure_ascii=False, indent=2), encoding='utf-8')
     ids = sorted(vectors)
     np.savez_compressed(output / 'features.npz', face_ids=np.array(ids, dtype=str),

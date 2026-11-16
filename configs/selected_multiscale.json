@@ -1,5 +1,7 @@
 {
   "schema": 1,
+  "status": "historical_not_current_default",
+  "superseded_by": "selected_conditional.json (2026-11-17 implementation)",
   "name": "user_selected_multiscale_075_average",
   "selected_date": "2026-11-01 Asia/Seoul",
   "note": "Recorded CLI defaults; this JSON is a settings record, not a --config input. No baseline preservation, manual correction, or identity-reference assignment by default.",

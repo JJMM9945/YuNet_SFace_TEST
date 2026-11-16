@@ -5,9 +5,12 @@ from face_lab.engine import Settings
 
 
 class SelectedDefaultsTests(unittest.TestCase):
-    def test_selected_multiscale_average_defaults(self):
+    def test_selected_conditional_average_defaults(self):
         settings = Settings()
-        self.assertEqual(settings.detection_sides, (960,1600,2400))
+        self.assertEqual(settings.detection_sides, (1280,))
+        self.assertTrue(settings.conditional_detection)
+        self.assertEqual(settings.supplemental_detection_sides, (960,1600,2400))
+        self.assertEqual(settings.conditional_min_faces, 3)
         self.assertEqual(settings.score_threshold, .75)
         self.assertEqual((settings.linkage,settings.similarity_threshold,
                           settings.ambiguity_margin,settings.min_group_size), ('average',.4,.01,1))

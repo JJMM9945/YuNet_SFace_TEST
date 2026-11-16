@@ -1,6 +1,7 @@
 # 현재 기능 검증과 과거 결과
 
 - [짧은 실험 결과 + 이미지 모음](results/README.md)
+- [2026/11/16 검출 크기·조건부 비교 및 기본 적용](results/20261116_detection_policy.md)
 - [현재 사진 앨범 결과](results/photo_count_comparison.md)
 - [검증·정리 기록](results/reorganization_validation.md)
 

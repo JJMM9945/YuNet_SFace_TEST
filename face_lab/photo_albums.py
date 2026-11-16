@@ -16,6 +16,7 @@ from . import VERSION, PREPROCESS_VERSION, GROUPING_VERSION
 from .albums import build_collections, collection_summary
 from .album_report import render
 from .engine import FaceEngine, Settings
+from .detection import DETECTION_POLICY_VERSION
 from .models import MODELS
 from .preprocess import decode_oriented, save_bgr
 
@@ -65,6 +66,7 @@ def run(input_folder, output_folder='results/photo_albums', models='models'):
     (output/'photos').mkdir(parents=True, exist_ok=False)
     started = time.perf_counter()
     photos, faces, vectors = [], [], {}
+    analysis_seconds = 0.0
     for index, path in enumerate(paths, 1):
         relative = path.relative_to(dataset).as_posix()
         pid = 'p' + hashlib.sha256(relative.encode('utf-8')).hexdigest()[:20]
@@ -72,9 +74,13 @@ def run(input_folder, output_folder='results/photo_albums', models='models'):
         try:
             encoded = path.read_bytes()
             photo['sha256'] = hashlib.sha256(encoded).hexdigest()
+            tick = time.perf_counter()
             # Decode for the original-photo report as well as the engine's own decode.
             oriented = decode_oriented(encoded)
             extracted, values = engine.extract_photo(encoded, pid)
+            analysis_seconds += time.perf_counter() - tick
+            if getattr(engine, 'last_detection', None) is not None:
+                photo['detection'] = engine.last_detection
             for face in extracted:
                 face['relative_path'] = relative
             save_bgr(output/'photos'/f'{pid}.jpg', oriented)
@@ -84,14 +90,21 @@ def run(input_folder, output_folder='results/photo_albums', models='models'):
             photo.update(status='failed', error=f'{type(error).__name__}: {error}')
         photos.append(photo)
         print(f'[{index}/{len(paths)}] {relative}: {photo["status"]}', flush=True)
+    tick = time.perf_counter()
     collections, rows = group_photos(photos, faces, vectors, engine)
+    grouping_seconds = time.perf_counter() - tick
+    settings = asdict(engine.settings)
     summary = dict(total_photos=len(photos), successful_photos=sum(p['status'] == 'success' for p in photos),
                    failed_photos=sum(p['status'] == 'failed' for p in photos),
                    zero_face_photos=sum(p['status'] == 'success' and not any(f['photo_id'] == p['photo_id'] for f in faces) for p in photos),
-                   detection=dict(score_threshold=.75, detection_sides=[960,1600,2400], nms_threshold=.30, top_k=5000),
-                   grouping=dict(linkage='average',similarity_threshold=.40,ambiguity_margin=.01,min_group_size=1),
-                   settings=asdict(engine.settings), cases=rows, mode='photo_albums_fixed_075',
-                   versions=dict(project=VERSION,preprocessing=PREPROCESS_VERSION,grouping=GROUPING_VERSION),
+                   detected_faces=len(faces), quality_excluded_faces=sum(bool(f.get('quality_reason')) for f in faces),
+                   conditional_rechecked_photos=sum(p.get('detection', {}).get('conditional_triggered', False) for p in photos),
+                   conditional_added_faces=sum(p.get('detection', {}).get('added_faces', 0) for p in photos),
+                   detection={k: settings[k] for k in ('score_threshold','detection_sides','conditional_detection','supplemental_detection_sides','conditional_min_faces','nms_threshold','top_k')},
+                   grouping={k: settings[k] for k in ('linkage','similarity_threshold','ambiguity_margin','min_group_size')},
+                   settings=settings, cases=rows, mode='photo_albums_conditional_1280',
+                   analysis_seconds=analysis_seconds, grouping_seconds=grouping_seconds,
+                   versions=dict(project=VERSION,preprocessing=PREPROCESS_VERSION,grouping=GROUPING_VERSION,detection_policy=DETECTION_POLICY_VERSION),
                    models={key: dict(name=spec['name'],sha256=spec['sha256']) for key,spec in MODELS.items()},
                    total_seconds=time.perf_counter()-started,
                    note='Photo counts are detected face counts, not verified people. Groups are provisional; counts are not accuracy.')

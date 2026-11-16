@@ -4,6 +4,42 @@ import numpy as np
 from .preprocess import detection_input, to_original
 
 MULTISCALE_VERSION = 'yunet-multiscale-global-nms-v1'
+DETECTION_POLICY_VERSION = 'yunet-conditional1280-preserve-v1'
+
+
+def box_iou(first, second):
+    lo = np.maximum(first[:2], second[:2])
+    hi = np.minimum(first[:2] + first[2:4], second[:2] + second[2:4])
+    intersection = float(np.prod(np.maximum(0, hi - lo)))
+    union = float(first[2] * first[3] + second[2] * second[3]) - intersection
+    return intersection / union if union > 0 else 0.0
+
+
+def detect_with_policy(detector, bgr, settings):
+    """Preserve primary rows; add non-overlapping supplemental rows before SFace.
+
+    Counts before quality filtering trigger the second pass. No result from the
+    supplemental pass can replace primary boxes, scores or landmarks.
+    """
+    primary, inputs = multiscale_detect(detector, bgr, settings.detection_sides, settings.nms_threshold)
+    triggered = settings.conditional_detection and (len(primary) == 0 or len(primary) >= settings.conditional_min_faces)
+    kept = list(primary)
+    supplemental, added = [], 0
+    if triggered:
+        supplemental, extra_inputs = multiscale_detect(
+            detector, bgr, settings.supplemental_detection_sides, settings.nms_threshold)
+        inputs.extend(extra_inputs)
+        for candidate in sorted(supplemental, key=lambda row: (-float(row[14]), *map(float, row[:4]))):
+            if all(box_iou(candidate, old) <= settings.nms_threshold for old in kept):
+                kept.append(candidate)
+                added += 1
+    return kept, dict(policy_version=DETECTION_POLICY_VERSION,
+                      primary_faces=len(primary), conditional_triggered=bool(triggered),
+                      supplemental_faces=len(supplemental), added_faces=added,
+                      trigger_reason=('disabled' if not settings.conditional_detection else
+                                      'zero_faces' if not primary else
+                                      'at_least_min_faces' if triggered else 'not_triggered'),
+                      actual_detection_inputs=inputs)
 
 
 def multiscale_detect(detector, bgr, sides, nms_threshold):

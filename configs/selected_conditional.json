@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "name": "conditional1280_preserve_075_average040",
+  "selected_date": "2026-11-16 comparison; 2026-11-17 default implementation (Asia/Seoul)",
+  "note": "Settings record, not CLI --config input. PC selection; Android implementation and validation separate.",
+  "options": {
+    "detection_sides": [1280],
+    "conditional_detection": true,
+    "supplemental_detection_sides": [960, 1600, 2400],
+    "conditional_min_faces": 3,
+    "score_threshold": 0.75,
+    "nms_threshold": 0.30,
+    "top_k": 5000,
+    "min_face_size": 40,
+    "min_blur": 50,
+    "similarity_threshold": 0.40,
+    "ambiguity_margin": 0.01,
+    "min_group_size": 1,
+    "linkage": "average"
+  },
+  "merge": "Preserve primary rows; add supplemental rows only if IoU<=0.30 against all retained rows; SFace once per final face. Count before quality filtering. No manual false-positive corrections."
+}

@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import cv2
 import numpy as np
 
-from .detection import multiscale_detect
+from .detection import detect_with_policy
 from .models import load
 from .preprocess import decode_oriented, extract
 from .grouping import group_faces
@@ -11,7 +11,10 @@ from .grouping import group_faces
 
 @dataclass(frozen=True)
 class Settings:
-    detection_sides: tuple = (960, 1600, 2400)
+    detection_sides: tuple = (1280,)
+    conditional_detection: bool = True
+    supplemental_detection_sides: tuple = (960, 1600, 2400)
+    conditional_min_faces: int = 3
     score_threshold: float = field(default=.75, init=False)
     nms_threshold: float = .30
     top_k: int = 5000
@@ -22,12 +25,20 @@ class Settings:
     min_group_size: int = 1
     linkage: str = 'average'
 
+    def __post_init__(self):
+        for sides in (self.detection_sides, self.supplemental_detection_sides):
+            if not sides or any(type(side) is not int or side < 32 for side in sides):
+                raise ValueError('Detection sides must be nonempty integer sizes >=32')
+        if type(self.conditional_min_faces) is not int or self.conditional_min_faces < 1:
+            raise ValueError('conditional_min_faces must be a positive integer')
+
 
 class FaceEngine:
     """Use one instance on a serial worker; OpenCV detector input size is mutable."""
 
     def __init__(self, models='models', settings=None):
         self.settings = settings or Settings()
+        self.last_detection = None
         cv2.setNumThreads(1)
         cv2.setRNGSeed(0)
         cv2.ocl.setUseOpenCL(False)
@@ -40,10 +51,11 @@ class FaceEngine:
         Caller owns stable photo IDs, persistence, change detection and job resumption.
         Quality exclusions retain successfully extracted vectors but cannot group.
         """
+        self.last_detection = None
         bgr = decode_oriented(encoded)
         h, w = bgr.shape[:2]
         s = self.settings
-        rows, _ = multiscale_detect(self.detector, bgr, s.detection_sides, s.nms_threshold)
+        rows, self.last_detection = detect_with_policy(self.detector, bgr, s)
         rows.sort(key=lambda r: (*map(float, r[:4]), -float(r[14])))
         faces, vectors = [], {}
         for number, row in enumerate(rows, 1):

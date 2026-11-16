@@ -22,6 +22,7 @@ class FakeEngine:
     def extract_photo(self, encoded, pid):
         with Image.open(BytesIO(encoded)) as image:
             count = image.getpixel((0, 0))[0]
+        self.last_detection = dict(primary_faces=count,conditional_triggered=count==0 or count>=3,added_faces=0)
         faces, vectors = [], {}
         for i in range(count):
             fid = f'{pid}_f{i}'
@@ -42,16 +43,20 @@ class WorkflowTests(unittest.TestCase):
             (folder/'broken.jpg').write_bytes(b'not an image')
             with patch('face_lab.photo_albums.FaceEngine',FakeEngine):
                 output = run(folder,Path(temp)/'출력')
-            summary=json.loads((output/'summary.json').read_text())
+            summary=json.loads((output/'summary.json').read_text(encoding='utf-8'))
             self.assertEqual((summary['total_photos'],summary['failed_photos'],summary['zero_face_photos']),(5,1,1))
             self.assertEqual(summary['detection']['score_threshold'],.75)
-            cases=json.loads((output/'photo_collections.json').read_text())
+            self.assertEqual(summary['detection']['detection_sides'],[1280])
+            self.assertEqual(summary['detection']['supplemental_detection_sides'],[960,1600,2400])
+            self.assertEqual(summary['conditional_rechecked_photos'],2)
+            self.assertEqual(summary['conditional_added_faces'],0)
+            cases=json.loads((output/'photo_collections.json').read_text(encoding='utf-8'))
             self.assertEqual([len(cases[k]) for k in ('solo','pair','crowd')],[1,1,1])
             self.assertEqual(sum(len(g['photos']) for g in cases['all']),5)
             states={p['state'] for g in cases['zero'] for p in g['photos']}
             self.assertEqual(states,{'failed','assigned'})
             self.assertTrue((output/'features.npz').is_file())
-            page=(output/'index.html').read_text()
+            page=(output/'index.html').read_text(encoding='utf-8')
             self.assertIn('YuNet 0.75',page)
             self.assertIn('분석 실패 1장',page)
             self.assertNotIn('__REPORT_DATA__',page)

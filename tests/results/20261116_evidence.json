@@ -1,0 +1,175 @@
+{
+  "comparison_date": "2026-11-16 Asia/Seoul",
+  "default_validation_date": "2026-11-17 Asia/Seoul",
+  "sources": [
+    {
+      "path": "results/detection_size_comparison_20261116T125410_284287Z/all_settings.json",
+      "sha256": "4dd13735e6a9b1cfe5112a3903277e61b3ac76f6eb117b822f5930b0bcc141e2"
+    },
+    {
+      "path": "results/conditional_comparison_20261116T141921_565436Z/comparison.json",
+      "sha256": "22975bfee6a17b6019f4c0fb4c58bc6e015788d7e304800aa0e967a703ddf76f"
+    },
+    {
+      "path": "results/conditional_default_implementation_20261117/verification.json",
+      "sha256": "ea501f26cb6188d0c77addc4d2768ed555f367679dc581f4828849022d174d83"
+    },
+    {
+      "path": "results/detection_size_comparison_20261116T125410_284287Z/difference_review_1280_vs_multiscale/review.json",
+      "sha256": "5ef54247f757b9b98fa916fcf6ab09abc4c6d4596f5aac07c962df894a9624d2"
+    }
+  ],
+  "size_comparison": [
+    {
+      "name": "single_1280",
+      "total_photos": 54,
+      "failed_photos": 0,
+      "detected_faces": 154,
+      "zero_face_photos": 2,
+      "quality_excluded_faces": 2,
+      "analysis_seconds": 17.63176929999827
+    },
+    {
+      "name": "single_1600",
+      "total_photos": 54,
+      "failed_photos": 0,
+      "detected_faces": 148,
+      "zero_face_photos": 3,
+      "quality_excluded_faces": 3,
+      "analysis_seconds": 19.20195369999965
+    },
+    {
+      "name": "single_1920",
+      "total_photos": 54,
+      "failed_photos": 0,
+      "detected_faces": 143,
+      "zero_face_photos": 4,
+      "quality_excluded_faces": 3,
+      "analysis_seconds": 23.073616700002276
+    },
+    {
+      "name": "single_2400",
+      "total_photos": 54,
+      "failed_photos": 0,
+      "detected_faces": 130,
+      "zero_face_photos": 9,
+      "quality_excluded_faces": 3,
+      "analysis_seconds": 25.608748199999354
+    },
+    {
+      "name": "multiscale_960_1600_2400",
+      "total_photos": 54,
+      "failed_photos": 0,
+      "detected_faces": 157,
+      "zero_face_photos": 1,
+      "quality_excluded_faces": 2,
+      "analysis_seconds": 37.8880537999994
+    }
+  ],
+  "controlled_comparison": [
+    {
+      "name": "1280 단독",
+      "total_photos": 54,
+      "failed_photos": 0,
+      "detected_faces": 154,
+      "zero_face_photos": 2,
+      "quality_excluded_faces": 2,
+      "analysis_seconds": 17.443076899993684
+    },
+    {
+      "name": "조건부 방식",
+      "total_photos": 54,
+      "failed_photos": 0,
+      "detected_faces": 157,
+      "zero_face_photos": 1,
+      "quality_excluded_faces": 3,
+      "analysis_seconds": 28.3739575000036
+    },
+    {
+      "name": "기존 세 크기",
+      "total_photos": 54,
+      "failed_photos": 0,
+      "detected_faces": 157,
+      "zero_face_photos": 1,
+      "quality_excluded_faces": 2,
+      "analysis_seconds": 38.09589210001286
+    }
+  ],
+  "difference_review": {
+    "matched": 153,
+    "only_1280": 1,
+    "only_multiscale": 4,
+    "scope": "Five unmatched regions visually reviewed; background face needs confirmation; no full ground truth"
+  },
+  "default_validation": {
+    "date": "2026-11-17 Asia/Seoul",
+    "passed": true,
+    "output": "results\\conditional_default_implementation_20261117\\installed_default\\run_20261116T150240_143382Z_5e3f09",
+    "network_blocked": true,
+    "original_hashes_unchanged": true,
+    "face_records_equal": true,
+    "feature_vectors_equal_with_tolerance": 1e-06,
+    "photos": 54,
+    "detected_faces": 157,
+    "zero_face_photos": 1,
+    "rechecked_photos": 27,
+    "added_faces": 3,
+    "analysis_seconds": 28.293438200003948,
+    "note": "Installed production default compared against prior experiment. Full identity accuracy and Android checks not performed."
+  },
+  "models": {
+    "yunet": {
+      "name": "face_detection_yunet_2023mar.onnx",
+      "directory": "face_detection_yunet",
+      "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+      "size": 232589,
+      "license": "MIT",
+      "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+      "license_url": "https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/face_detection_yunet/LICENSE"
+    },
+    "sface": {
+      "name": "face_recognition_sface_2021dec.onnx",
+      "directory": "face_recognition_sface",
+      "sha256": "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79",
+      "size": 38696353,
+      "license": "Apache-2.0",
+      "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx",
+      "license_url": "https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/face_recognition_sface/LICENSE"
+    }
+  },
+  "project_version": "1.1.0",
+  "preprocess_version": "exif-pillow-bgr-conditional1280-preserve-align-l2-v2",
+  "shared_images": [
+    {
+      "path": "20261116_comparison_screen.png",
+      "sha256": "135f63c3d3205f32cfb00d25862c769cc9431c53d927f14a77cc2c6f0493270f"
+    },
+    {
+      "path": "20261116_conditional_policy.png",
+      "sha256": "9307bb38dfdf81fb6afdde766469578d781a8dc96a8be3409df03abb0e5dc074"
+    },
+    {
+      "path": "20261116_detection_sizes.png",
+      "sha256": "4b43f329b9c39bd246e9b2ed1bb8c43882d4e5600d6dc682741ee30da418f3e4"
+    }
+  ],
+  "final_audit": {
+    "passed": true,
+    "document_links_checked": 6,
+    "private_review_git_ignored": true,
+    "shared_charts_not_ignored": true,
+    "settings_record_matches_runtime": true,
+    "album_assignments_match_experiment": true,
+    "python_tests": 20,
+    "javascript_tests_passed": true,
+    "model_check_passed": true,
+    "pip_check_passed": true,
+    "ui_validation": {
+      "passed": true,
+      "javascript_errors": [],
+      "external_requests": 0,
+      "installed_default_viewer": true,
+      "private_review_images": 6
+    }
+  }
+}

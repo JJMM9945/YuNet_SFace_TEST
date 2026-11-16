@@ -13,6 +13,7 @@ models/
 /results/
 /validation_data/
 /tests/private/
+/tests/results/private_20261116/
 /device_results/
 step1기록 저장/
 step*_annotations*.json
